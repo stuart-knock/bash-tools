@@ -1,0 +1,126 @@
+#! /bin/bash
+
+#USAGE: bashcheck filename
+#
+#EXAMPLE: bashcheck ./bashcheck
+#
+# Does a quick and dirty check of a bash script printing any potentially major
+# problems to stdout, specifically it checks for:
+#   +Assigning values to system variables in an unconstrained way, ie a way 
+#    that will have side effects on the callers environment.
+#   +Assigning variables or defining functions using Built-in function names or 
+#    keywords.
+#
+# Author: Stuart A. Knock
+# Originally Written: 2015-11-23
+#
+
+
+###############################################################################
+########################## Configurable variables #############################
+###############################################################################
+
+#"Basic"|""|"Pernickety"
+fussiness="Pernickety"
+
+#The following set of variables define what to check for, you can add or remove
+#items from the lists to suit your preferences.
+
+#System variables to check for accidental overwrite
+sysvars="BASH BASH_ARGC BASH_ARGV BASH_LINENO BASH_SOURCE BASH_VERSINFO
+         BASH_VERSION CDPATH COLUMNS CPU DIRSTACK DISPLAY EDITOR EUID FUNCNAME
+         GLOBIGNORE GROUPS HISTFILE HISTFILESIZE HISTSIZE HOME HOST HOSTNAME
+         HOSTTYPE IFS IGNOREEOF LANG LANGUAGE LC_ALL LC_COLLATE LC_CTYPE LESS
+         LINES LINENO LOGNAME LS_COLORS MACHTYPE MAIL MAILCHECK MORE OLDPWD
+         OPTERR OPTIND OSTYPE PAGER PATH PIPESTATUS PPID PROMPT_COMMAND PS1 PS2
+         PS4 PS3 PWD REPLY SECONDS SHELL SHELLOPTS SHLVL TERM TMOUT TMPDIR UID
+         USER USERNAME XAUTHORITY"
+
+#Built in functions to check for overwrite or reassignment
+builtins="bind caller case cat cd cp declare dirs do done echo enable esac eval
+          exec exit export false for function getopts hash help let local logout
+          ls mapfile mv popd print printf ps pushd pwd read readarray readonly
+          return rm shift shopt source su test true type typeset ulimit unalias
+          unset while"
+
+
+###############################################################################
+############################## Define Functions ###############################
+##############################################################################
+#TODO: Can't figure out how to prevent expansion of ${FUNCNAME} but still have
+#  it properly expand inside the function.
+#ferrfmt='ERROR: ${FUNCNAME}(): %s\n'
+
+# Check a Bash script for variable definitions that may clobber system variables
+checkAssignment(){
+  local errfmt="ERROR: ${FUNCNAME}(): %s\n"
+  [[ $# != 1 ]] && { printf "$errfmt" "only supports one argument"; return 1; }
+  local scriptname="$1"
+  [[ -f $scriptname ]] || { printf "$errfmt" "can't find script: $scriptname"; return 1; }
+
+  printf "Checking sysvars for possible overwriting:\n"
+
+  #Convert sysvars variable into a regex.
+  local overwritevars=$(printf "("$(printf '%s|' $sysvars)')=' | sed s/'|)='/')='/)
+
+  #Match whole words followed immediately by "="
+  grep --colour -nwE $overwritevars $scriptname
+  [[ $? != 0 ]] && echo "No problems found"
+
+  #TODO: Exclude cases where the occurrence is commented or proceeded by local
+  #      or a similar construct that protects the global variable.
+
+  if [[ $fussiness == "Pernickety" ]] ; then
+  	#While assigning a variable with an existing function name shouldn't cause
+  	#any problem, it could make things confusing, so if we're being extra fussy
+  	#we should avoid it.
+    printf "Checking builtins for possible overwriting:\n"
+    #Convert builtins variable into a regex.
+  	local overwritevars=$(printf "("$(printf '%s|' $builtins)')=' | sed s/'|)='/')='/)
+    #Match whole words followed immediately by "="
+    grep --colour -nwE $overwritevars $scriptname
+    [[ $? != 0 ]] && echo "  No problems found"
+  fi
+  return 0
+}
+
+# Check a Bash script for value setting or function definitions using common 
+# function names or keywords, eg test, exit, local done
+checkRedefinition(){
+  local errfmt="ERROR: ${FUNCNAME}(): %s\n"
+  [[ $# != 1 ]] && { printf "$errfmt" "only supports one argument\n"; return 1; }
+  local scriptname="$1"
+  [[ -f $scriptname ]] || { printf "$errfmt" "can't find script: $scriptname\n"; return 1; }
+
+  printf "Checking builtins for possible redefinition:\n"
+  #Convert sysvars variable into a regex.
+  local redefinefuncs=$(printf "("$(printf '%s|' $builtins)')\s*\(\s*\)\s*\{' | sed s/'|)'/')'/)
+
+  #Match whole words followed immediately by "(){", allowing for spaces before
+  grep --colour -nwE $redefinefuncs $scriptname
+  [[ $? != 0 ]] && echo "  No problems found"
+
+  #TODO: Exclude cases where the occurrence is commented...
+
+  return 0
+}
+
+
+###############################################################################
+################################ Main Script ##################################
+###############################################################################
+
+# make sure filename supplied as command line arg else die
+[[ $# != 1 ]] && { printf "  Usage: $0 filename\n"; exit 1; }
+
+filename="$1"
+
+printf "Running bashcheck on file: $filename\n"
+
+checkAssignment $filename
+retCA=$?
+
+checkRedefinition $filename
+retCR=$?
+
+exit $((retCA+retCR))
