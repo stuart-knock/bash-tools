@@ -1,0 +1,41 @@
+#! /bin/bash
+
+#USAGE: checkPyImport packagename
+#
+#EXAMPLES:
+#  #Should return Success and an exit code of 0
+#  checkPyImport os
+#
+#  #Should return Failure, exit code 1 -- "Douglas Adams" != "Monty Python"
+#  checkPyImport slartibartfast
+#
+#  #In a script where you don't want the stdout, do something like:
+#  checkPyImport slartibartfast &> /dev/null
+#  if [ "$?" = "0" ] ; then 
+#    printf "%s\n" "I prefer Douglas Adams too." 
+#  else
+#    printf "%s\n" "No point calling that Python script"
+#  fi
+#
+#DESCRIPTION:
+#  Starts python and imports the requested package before exiting.
+#  A message is printed to standard out and the exit code is set 
+#  based on success or failure of the import.
+#
+# Author: Stuart A. Knock
+# Originally Written: 2015-11-25
+#
+
+#TODO: Add some extra checks and messages, maybe add a verbosity flag...
+#local pathtopython=$(which python)
+#which python &> /dev/null ; test "$?" = "0" || printf "%s\n" "Can't find python..."
+
+printf "Testing if python can import %s: " "$1"
+python -c "import $1 ; exit()" &> /dev/null
+if [ "$?" = "0" ] ; then
+  printf "%s\n" "Success"
+  exit 0
+else
+  printf "%s\n"  "Failure"
+  exit 1
+fi
