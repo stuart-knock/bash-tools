@@ -15,6 +15,7 @@
 # Originally Written: 2015-11-23
 #
 
+#TODO: Cleanup output formatting.
 
 ###############################################################################
 ########################## Configurable variables #############################
@@ -37,26 +38,28 @@ sysvars="BASH BASH_ARGC BASH_ARGV BASH_LINENO BASH_SOURCE BASH_VERSINFO
          USER USERNAME XAUTHORITY"
 
 #Built in functions to check for overwrite or reassignment
-builtins="bind caller case cat cd cp declare dirs do done echo enable esac eval
-          exec exit export false for function getopts hash help let local logout
-          ls mapfile mv popd print printf ps pushd pwd read readarray readonly
-          return rm shift shopt source su test true type typeset ulimit unalias
-          unset while"
+builtins="agrep awk bind break caller case cat cd chmod chown cp curl cut 
+          declare df dirs do done du echo egrep enable esac eval exec exit
+          export false fi for function getopts grep hash head help id in let
+          line ln local logout ls mapfile mkdir mv mysql popd print printf ps
+          pushd pwd read readarray readonly return rm sed shift shopt sort
+          source su sudo tail tee test then tr true type typeset ulimit unalias
+          unset wait while who whoami"
 
 
 ###############################################################################
 ############################## Define Functions ###############################
 ##############################################################################
 #TODO: Can't figure out how to prevent expansion of ${FUNCNAME} but still have
-#  it properly expand inside the function.
+#  it properly expand inside the function when used as a printf format.
 #ferrfmt='ERROR: ${FUNCNAME}(): %s\n'
 
 # Check a Bash script for variable definitions that may clobber system variables
 checkAssignment(){
   local errfmt="ERROR: ${FUNCNAME}(): %s\n"
   [[ $# != 1 ]] && { printf "$errfmt" "only supports one argument"; return 1; }
-  local scriptname="$1"
-  [[ -f $scriptname ]] || { printf "$errfmt" "can't find script: $scriptname"; return 1; }
+  local chkscrpt="$1"
+  [[ -f $chkscrpt ]] || { printf "$errfmt" "can't find script: $chkscrpt"; return 1; }
 
   printf "Checking sysvars for possible overwriting:\n"
 
@@ -64,7 +67,7 @@ checkAssignment(){
   local overwritevars=$(printf "("$(printf '%s|' $sysvars)')=' | sed s/'|)='/')='/)
 
   #Match whole words followed immediately by "="
-  grep --colour -nwE $overwritevars $scriptname
+  grep --colour -nwE $overwritevars $chkscrpt
   [[ $? != 0 ]] && echo "No problems found"
 
   #TODO: Exclude cases where the occurrence is commented or proceeded by local
@@ -78,7 +81,7 @@ checkAssignment(){
     #Convert builtins variable into a regex.
   	local overwritevars=$(printf "("$(printf '%s|' $builtins)')=' | sed s/'|)='/')='/)
     #Match whole words followed immediately by "="
-    grep --colour -nwE $overwritevars $scriptname
+    grep --colour -nwE $overwritevars $chkscrpt
     [[ $? != 0 ]] && echo "  No problems found"
   fi
   return 0
@@ -89,15 +92,15 @@ checkAssignment(){
 checkRedefinition(){
   local errfmt="ERROR: ${FUNCNAME}(): %s\n"
   [[ $# != 1 ]] && { printf "$errfmt" "only supports one argument\n"; return 1; }
-  local scriptname="$1"
-  [[ -f $scriptname ]] || { printf "$errfmt" "can't find script: $scriptname\n"; return 1; }
+  local chkscrpt="$1"
+  [[ -f $chkscrpt ]] || { printf "$errfmt" "can't find script: $chkscrpt\n"; return 1; }
 
   printf "Checking builtins for possible redefinition:\n"
   #Convert sysvars variable into a regex.
-  local redefinefuncs=$(printf "("$(printf '%s|' $builtins)')\s*\(\s*\)\s*\{' | sed s/'|)'/')'/)
+  local redeffuncs=$(printf "("$(printf '%s|' $builtins)')\s*\(\s*\)\s*\{' | sed s/'|)'/')'/)
 
   #Match whole words followed immediately by "(){", allowing for spaces before
-  grep --colour -nwE $redefinefuncs $scriptname
+  grep --colour -nwE $redeffuncs $chkscrpt
   [[ $? != 0 ]] && echo "  No problems found"
 
   #TODO: Exclude cases where the occurrence is commented...
@@ -123,4 +126,4 @@ retCA=$?
 checkRedefinition $filename
 retCR=$?
 
-exit $((retCA+retCR))
+exit $((retCA||retCR))
