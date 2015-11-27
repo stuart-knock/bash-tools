@@ -1,0 +1,46 @@
+#! /bin/bash
+
+#USAGE:
+#  #Source the file to get access to all the variable and function definitions.
+#  source bashlogging
+#  #Then you can override default LogFile and LogLevel to suit your needs.
+#  LogFile='path/to/mylogfile.log'
+#  LogLevel=3  #I have a problem with my script that I need to identify.
+#  myfunc(){
+#    #Then all that is left is to cover your script and functions with 
+#    #useful messages:
+#    Debug "ENTERING: ${FUNCNAME}()"
+#    Inform "That important thing is being calculated now..."
+#    Warn "The ducks weren't all in a row, but we'll forge on."
+#    Err "It all went horribly wrong, no value will be returned."
+#  }
+#
+#
+#DESCRIPTION:
+# Defines a few functions for fine grained control of logging information.
+# Writes everything for the given LogLevel to both stdout and a file.
+#
+# Author: Stuart A. Knock
+# Originally Written: 2015-11-27
+#
+
+#LogLevel provides control over the amount of information myth2kodi reports. 
+#    0=Only Errors;
+#    1=adds warnings;
+#    2=adds more information;
+#    3=provides debugging output.
+LogLevel=2
+LogFile='default_bashlogging.log'
+
+#Functions defining the different logging messages
+Debug(){  [[ LogLevel -ge 3 ]] && printf 'DEBUG: %s\n'   "$1" | tee -a $LogFile; }
+Inform(){ [[ LogLevel -ge 2 ]] && printf 'INFO: %s\n'    "$1" | tee -a $LogFile; }
+Warn(){   [[ LogLevel -ge 1 ]] && printf 'WARNING: %s\n' "$1" | tee -a $LogFile; }
+Err(){    [[ LogLevel -ge 0 ]] && printf 'ERROR: %s\n'   "$1" | tee -a $LogFile; }
+
+#Use for multiple lines of a single message
+declare -r pad="          " #needs to be >= number of spaces for the largest X below in %0.Xs
+DebugCont(){  [[ LogLevel -ge 3 ]] && printf '%0.7s%s\n' "$pad" "$1" | tee -a $LogFile; }
+InformCont(){ [[ LogLevel -ge 2 ]] && printf '%0.6s%s\n' "$pad" "$1" | tee -a $LogFile; }
+WarnCont(){   [[ LogLevel -ge 1 ]] && printf '%0.9s%s\n' "$pad" "$1" | tee -a $LogFile; }
+ErrCont(){    [[ LogLevel -ge 0 ]] && printf '%0.7s%s\n' "$pad" "$1" | tee -a $LogFile; }
