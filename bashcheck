@@ -40,7 +40,7 @@ sysvars="BASH BASH_ARGC BASH_ARGV BASH_LINENO BASH_SOURCE BASH_VERSINFO
 #Built in functions to check for overwrite or reassignment
 builtins="agrep awk bind break caller case cat cd chmod chown cp curl cut 
           declare df dirs do done du echo egrep enable esac eval exec exit
-          export false fi for function getopts grep hash head help id in let
+          export false fi for function getopts grep hash head help id in info let
           line ln local logout ls mapfile mkdir mv mysql popd print printf ps
           pushd pwd read readarray readonly return rm sed shift shopt sort
           source su sudo tail tee test then tr true type typeset ulimit unalias
