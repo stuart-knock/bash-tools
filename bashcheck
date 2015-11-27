@@ -46,6 +46,8 @@ builtins="agrep awk bind break caller case cat cd chmod chown cp curl cut
           source su sudo tail tee test then tr true type typeset ulimit unalias
           unset wait while who whoami"
 
+#If "Enabled", display extra information for debugging purposes.
+DEBUGMODE=""
 
 ###############################################################################
 ############################## Define Functions ###############################
@@ -56,6 +58,7 @@ builtins="agrep awk bind break caller case cat cd chmod chown cp curl cut
 
 # Check a Bash script for variable definitions that may clobber system variables
 checkAssignment(){
+  test "$DEBUGMODE" = "Enabled" && printf '%s\n' "ENTERING: ${FUNCNAME}()"
   local errfmt="ERROR: ${FUNCNAME}(): %s\n"
   [[ $# != 1 ]] && { printf "$errfmt" "only supports one argument"; return 1; }
   local chkscrpt="$1"
@@ -68,7 +71,7 @@ checkAssignment(){
 
   #Match whole words followed immediately by "="
   grep --colour -nwE $overwritevars $chkscrpt
-  [[ $? != 0 ]] && echo "No problems found"
+  [[ $? != 0 ]] && echo "No problems found" || printf '\n'
 
   #TODO: Exclude cases where the occurrence is commented or proceeded by local
   #      or a similar construct that protects the global variable.
@@ -82,7 +85,7 @@ checkAssignment(){
   	local overwritevars=$(printf "("$(printf '%s|' $builtins)')=' | sed s/'|)='/')='/)
     #Match whole words followed immediately by "="
     grep --colour -nwE $overwritevars $chkscrpt
-    [[ $? != 0 ]] && echo "  No problems found"
+    [[ $? != 0 ]] && echo "  No problems found" || printf '\n'
   fi
   return 0
 }
@@ -90,6 +93,7 @@ checkAssignment(){
 # Check a Bash script for value setting or function definitions using common 
 # function names or keywords, eg test, exit, local done
 checkRedefinition(){
+  test "$DEBUGMODE" = "Enabled" && printf '%s\n' "ENTERING: ${FUNCNAME}()"
   local errfmt="ERROR: ${FUNCNAME}(): %s\n"
   [[ $# != 1 ]] && { printf "$errfmt" "only supports one argument\n"; return 1; }
   local chkscrpt="$1"
@@ -101,7 +105,7 @@ checkRedefinition(){
 
   #Match whole words followed immediately by "(){", allowing for spaces before
   grep --colour -nwE $redeffuncs $chkscrpt
-  [[ $? != 0 ]] && echo "  No problems found"
+  [[ $? != 0 ]] && echo "  No problems found" || printf '\n'
 
   #TODO: Exclude cases where the occurrence is commented...
 
