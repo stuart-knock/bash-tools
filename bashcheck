@@ -4,6 +4,7 @@
 #
 #EXAMPLE: bashcheck ./bashcheck
 #
+#DESCRIPTION:
 # Does a quick and dirty check of a bash script printing any potentially major
 # problems to stdout, specifically it checks for:
 #   +Assigning values to system variables in an unconstrained way, ie a way 
@@ -37,14 +38,14 @@ sysvars="BASH BASH_ARGC BASH_ARGV BASH_LINENO BASH_SOURCE BASH_VERSINFO
          PS4 PS3 PWD REPLY SECONDS SHELL SHELLOPTS SHLVL TERM TMOUT TMPDIR UID
          USER USERNAME XAUTHORITY"
 
-#Built in functions to check for overwrite or reassignment
-builtins="agrep awk bind break caller case cat cd chmod chown cp curl cut 
+#Built in and "standard" functions to check for overwrite or reassignment
+builtins="agrep awk bind break caller case cat cd chmod chown cp curl cut
           declare df dirs do done du echo egrep enable esac eval exec exit
           export false fi for function getopts grep hash head help id in info let
           line ln local logout ls mapfile mkdir mv mysql popd print printf ps
-          pushd pwd read readarray readonly return rm sed shift shopt sort
+          pushd pwd read readarray readonly return rm sed shift shopt sleep sort
           source su sudo tail tee test then tr true type typeset ulimit unalias
-          unset wait while who whoami"
+          unset wait while who whoami xargs"
 
 #If "Enabled", display extra information for debugging purposes.
 DEBUGMODE=""
