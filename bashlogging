@@ -3,6 +3,8 @@
 #USAGE:
 #  #Source the file to get access to all the variable and function definitions.
 #  source bashlogging [LogType]
+#  #the optional LogType argument ['stdout'|'logfile'|'both'(default)] directs
+#  # output to stdout, file or both. this can only be set while "source"ing.
 #  #Then you can override default LogFile and LogLevel to suit your needs.
 #  LogFile='path/to/mylogfile.log'
 #  LogLevel=3  #I have a problem with my script that I need to identify.
@@ -10,29 +12,35 @@
 #    #Then all that is left is to cover your script and functions with 
 #    #useful messages:
 #    Debug "ENTERING: ${FUNCNAME}()"
-#    Inform "That important thing is being calculated now..."
-#    Warn "The ducks weren't all in a row, but we'll forge on."
-#    Err "It all went horribly wrong, no value will be returned."
+#    Inform 'That important thing is being calculated now...'
+#    Warn 'The ducks weren't all in a row, but we'll forge on.'
+#    Err 'It all went horribly wrong, no value will be returned.'
+#    ErrCont "The value of x was y and j was z, try passing q to ${FUNCNAME}()"
+#    ErrCont 'You might also need to chmod yourfile.txt and do a rain dance.'
 #  }
 #
 #REQUIRES:
 #  tee -- reads from standard input and write to standard output and files
+#  xargs
+#  bash >= 4
 #
-#
-#
-#PROVIDES:
-#  Debug    -- (READONLY) Produces level 3 messages prepended with DEBUG:
-#  Inform   -- (READONLY) Produces level 2 messages prepended with INFORM:
-#  Warn
-#  Err
-#  DebugCont
-#  InformCont
-#  WarnCont
-#  ErrCont
+#PROVIDES (all functions are tagged READONLY):
+#  #Message functions: for file output, prepends date & time
+#  Debug  -- For LogLevel >= 3, writes messages prepended with "DEBUG: "
+#  Inform -- For LogLevel >= 2, writes messages prepended with "INFORM: "
+#  Warn   -- For LogLevel >= 1, writes messages prepended with "WARNING: "
+#  Err    -- For LogLevel >= 0, writes messages prepended with "ERROR: "
+#  #Continued/multiline message functions: these are indented without leading info.
+#  DebugCont  -- Continues a LogLevel 3 message.
+#  InformCont -- Continues a LogLevel 2 message.
+#  WarnCont   -- Continues a LogLevel 1 message.
+#  ErrCont    -- Continues a LogLevel 0 message.
 #
 #DESCRIPTION:
 # Defines a few functions for fine grained control of logging information.
-# Writes everything for the given LogLevel to both stdout and a file.
+# Writes different types of messages based on LogLevel. The messages are 
+# sent to either stdout, file, or both based on the LogType argument. The
+# file output is prepended with date & time -- stdout isn't.
 #
 # Author: Stuart A. Knock
 # Originally Written: 2015-11-27
@@ -42,6 +50,8 @@
 #      the LogLevel to 2 in the event of warnings and 3 in the event of errors.
 #TODO: Consider making the function names more explicit by prepending Log
 #TODO: Consider colourising the terminal part of the output.
+#TODO: Consider making indentation on Cont[inuation] lines a standard 4 spaces.
+#TODO: Enable different "LogLevel"s for file and stdout.
 
 #Default logging level, controls the type of bashlogging messages reported.
 #This can be modified at any point in a calling script to increase/decrease
@@ -52,13 +62,15 @@
 #    3=provides debugging output.
 LogLevel=2
 
-#Default type of logging to do, or more specifically the type of destination for messages.
-#The options are 'both'[default] | 'logfile' | 'stdout', default can be overridden at call,
-#eg: source bashlogging 'logfile' #Only send logging messages to file, not stdout.
-LogType='both'
-
 #Default log file name, 
 LogFile='default_bashlogging.log'
+
+#Default type of logging to do, or more specifically the type of destination
+#for logging messages. Options are ['logfile'|'stdout'|'both'(default)], the
+#default set here can only be overridden when source[ing] bashlogging, eg:
+#    source bashlogging 'logfile' #Only send logging messages to file, not stdout.
+#and not after sourcing, as can be done with LogLevel and LogFile.
+LogType='both'
 
 #^^^^----------- DEFAULT USER SETTINGS ABOVE THIS LINE ------------------^^^^#
 
@@ -73,14 +85,10 @@ declare -r pad="          " #needs to be >= number of spaces for the largest X b
 if [ "$LogType" = "both" ] ; then
   #Functions defining the different logging messages, sent to logfile & stdout
   #sleep is a hack to avoid wrong order in file when *Cont is used, and apparently processes faster leading to out of order file content. Maybe put in start of *Cont???
-  Debug(){ [[ LogLevel -ge 3 ]]  && printf "DEBUG: %s\n" "$1"   | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
-  Inform(){ [[ LogLevel -ge 3 ]] && printf "INFO: %s\n" "$1"    | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
-  Warn(){ [[ LogLevel -ge 3 ]]   && printf "WARNING: %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
-  Err(){ [[ LogLevel -ge 3 ]]    && printf "ERROR: %s\n" "$1"   | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
-  # Debug(){  [[ LogLevel -ge 3 ]] && printf 'DEBUG: %s\n'   "$1" | tee -a $LogFile; }
-  # Inform(){ [[ LogLevel -ge 2 ]] && printf 'INFO: %s\n'    "$1" | tee -a $LogFile; }
-  # Warn(){   [[ LogLevel -ge 1 ]] && printf 'WARNING: %s\n' "$1" | tee -a $LogFile; }
-  # Err(){    [[ LogLevel -ge 0 ]] && printf 'ERROR: %s\n'   "$1" | tee -a $LogFile; }
+  Debug(){  [[ LogLevel -ge 3 ]] && printf "DEBUG: %s\n" "$1"   | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
+  Inform(){ [[ LogLevel -ge 2 ]] && printf "INFO: %s\n" "$1"    | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
+  Warn(){   [[ LogLevel -ge 1 ]] && printf "WARNING: %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
+  Err(){    [[ LogLevel -ge 0 ]] && printf "ERROR: %s\n" "$1"   | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
 
   #Use for multiple lines of a single message, sent to logfile & stdout
   DebugCont(){  [[ LogLevel -ge 3 ]] && printf '%0.7s%s\n' "$pad" "$1" | tee -a $LogFile; }
@@ -100,7 +108,7 @@ elif [ "$LogType" = "stdout" ] ; then
   InformCont(){ [[ LogLevel -ge 2 ]] && printf '%0.6s%s\n' "$pad" "$1" ; }
   WarnCont(){   [[ LogLevel -ge 1 ]] && printf '%0.9s%s\n' "$pad" "$1" ; }
   ErrCont(){    [[ LogLevel -ge 0 ]] && printf '%0.7s%s\n' "$pad" "$1" ; }
-  
+
 elif [ "$LogType" = "logfile" ] ; then
   #Functions defining the different logging messages, no-stdout==only-logfile
   Debug(){  [[ LogLevel -ge 3 ]] && printf "[$(date +%FT%T)] DEBUG: %s\n"   "$1" >> $LogFile; }
