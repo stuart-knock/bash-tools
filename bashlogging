@@ -60,7 +60,7 @@
 #    1=adds warnings;
 #    2=adds more information;
 #    3=provides debugging output.
-LogLevel=2
+declare -i LogLevel=2
 
 #Default log file name, 
 LogFile='default_bashlogging.log'
@@ -77,50 +77,50 @@ LogType='both'
 
 #The type of logging to do, or more specifically the type of destination for messages.
 #The options are 'both'[default] | 'logfile' | 'stdout'
-[[ $# -gt 1 ]] && { printf 'ERROR: %s\n' "$0 take only 1 arg" ; exit 1 ; }
-[[ $# == 1 ]] && declare -r LogType=$1 || declare -r LogType
+(($# > 1)) && { printf 'ERROR: %s\n' "$0 take only 1 arg" ; exit 1 ; }
+(($# == 1)) && declare -r LogType=$1 || declare -r LogType
 
 declare -r pad="          " #needs to be >= number of spaces for the largest X below in %0.Xs
 
 if [ "$LogType" = "both" ] ; then
   #Functions defining the different logging messages, sent to logfile & stdout
   #sleep is a hack to avoid wrong order in file when *Cont is used, and apparently processes faster leading to out of order file content. Maybe put in start of *Cont???
-  Debug(){  [[ LogLevel -ge 3 ]] && printf "DEBUG: %s\n" "$1"   | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
-  Inform(){ [[ LogLevel -ge 2 ]] && printf "INFO: %s\n" "$1"    | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
-  Warn(){   [[ LogLevel -ge 1 ]] && printf "WARNING: %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
-  Err(){    [[ LogLevel -ge 0 ]] && printf "ERROR: %s\n" "$1"   | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
+  Debug(){  ((LogLevel >= 3)) && printf "DEBUG: %s\n"   "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
+  Inform(){ ((LogLevel >= 2)) && printf "INFO: %s\n"    "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
+  Warn(){   ((LogLevel >= 1)) && printf "WARNING: %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
+  Err(){    ((LogLevel >= 0)) && printf "ERROR: %s\n"   "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
 
   #Use for multiple lines of a single message, sent to logfile & stdout
-  DebugCont(){  [[ LogLevel -ge 3 ]] && printf '%0.7s%s\n' "$pad" "$1" | tee -a $LogFile; }
-  InformCont(){ [[ LogLevel -ge 2 ]] && printf '%0.6s%s\n' "$pad" "$1" | tee -a $LogFile; }
-  WarnCont(){   [[ LogLevel -ge 1 ]] && printf '%0.9s%s\n' "$pad" "$1" | tee -a $LogFile; }
-  ErrCont(){    [[ LogLevel -ge 0 ]] && printf '%0.7s%s\n' "$pad" "$1" | tee -a $LogFile; }
+  DebugCont(){  ((LogLevel >= 3)) && printf '%0.7s%s\n' "$pad" "$1" | tee -a $LogFile; }
+  InformCont(){ ((LogLevel >= 2)) && printf '%0.6s%s\n' "$pad" "$1" | tee -a $LogFile; }
+  WarnCont(){   ((LogLevel >= 1)) && printf '%0.9s%s\n' "$pad" "$1" | tee -a $LogFile; }
+  ErrCont(){    ((LogLevel >= 0)) && printf '%0.7s%s\n' "$pad" "$1" | tee -a $LogFile; }
 
 elif [ "$LogType" = "stdout" ] ; then
   #Functions defining the different logging messages, no-logfile==only-stdout
-  Debug(){  [[ LogLevel -ge 3 ]] && printf 'DEBUG: %s\n'   "$1" ; }
-  Inform(){ [[ LogLevel -ge 2 ]] && printf 'INFO: %s\n'    "$1" ; }
-  Warn(){   [[ LogLevel -ge 1 ]] && printf 'WARNING: %s\n' "$1" ; }
-  Err(){    [[ LogLevel -ge 0 ]] && printf 'ERROR: %s\n'   "$1" ; }
+  Debug(){  ((LogLevel >= 3)) && printf 'DEBUG: %s\n'   "$1" ; }
+  Inform(){ ((LogLevel >= 2)) && printf 'INFO: %s\n'    "$1" ; }
+  Warn(){   ((LogLevel >= 1)) && printf 'WARNING: %s\n' "$1" ; }
+  Err(){    ((LogLevel >= 0)) && printf 'ERROR: %s\n'   "$1" ; }
 
   #Use for multiple lines of a single message, no-logfile==only-stdout
-  DebugCont(){  [[ LogLevel -ge 3 ]] && printf '%0.7s%s\n' "$pad" "$1" ; }
-  InformCont(){ [[ LogLevel -ge 2 ]] && printf '%0.6s%s\n' "$pad" "$1" ; }
-  WarnCont(){   [[ LogLevel -ge 1 ]] && printf '%0.9s%s\n' "$pad" "$1" ; }
-  ErrCont(){    [[ LogLevel -ge 0 ]] && printf '%0.7s%s\n' "$pad" "$1" ; }
+  DebugCont(){  ((LogLevel >= 3)) && printf '%0.7s%s\n' "$pad" "$1" ; }
+  InformCont(){ ((LogLevel >= 2)) && printf '%0.6s%s\n' "$pad" "$1" ; }
+  WarnCont(){   ((LogLevel >= 1)) && printf '%0.9s%s\n' "$pad" "$1" ; }
+  ErrCont(){    ((LogLevel >= 0)) && printf '%0.7s%s\n' "$pad" "$1" ; }
 
 elif [ "$LogType" = "logfile" ] ; then
   #Functions defining the different logging messages, no-stdout==only-logfile
-  Debug(){  [[ LogLevel -ge 3 ]] && printf "[$(date +%FT%T)] DEBUG: %s\n"   "$1" >> $LogFile; }
-  Inform(){ [[ LogLevel -ge 2 ]] && printf "[$(date +%FT%T)] INFO: %s\n"    "$1" >> $LogFile; }
-  Warn(){   [[ LogLevel -ge 1 ]] && printf "[$(date +%FT%T)] WARNING: %s\n" "$1" >> $LogFile; }
-  Err(){    [[ LogLevel -ge 0 ]] && printf "[$(date +%FT%T)] ERROR: %s\n"   "$1" >> $LogFile; }
+  Debug(){  ((LogLevel >= 3)) && printf "[$(date +%FT%T)] DEBUG: %s\n"   "$1" >> $LogFile; }
+  Inform(){ ((LogLevel >= 2)) && printf "[$(date +%FT%T)] INFO: %s\n"    "$1" >> $LogFile; }
+  Warn(){   ((LogLevel >= 1)) && printf "[$(date +%FT%T)] WARNING: %s\n" "$1" >> $LogFile; }
+  Err(){    ((LogLevel >= 0)) && printf "[$(date +%FT%T)] ERROR: %s\n"   "$1" >> $LogFile; }
 
   #Use for multiple lines of a single message, no-stdout==only-logfile
-  DebugCont(){  [[ LogLevel -ge 3 ]] && printf '%0.7s%s\n' "$pad" "$1" >> $LogFile; }
-  InformCont(){ [[ LogLevel -ge 2 ]] && printf '%0.6s%s\n' "$pad" "$1" >> $LogFile; }
-  WarnCont(){   [[ LogLevel -ge 1 ]] && printf '%0.9s%s\n' "$pad" "$1" >> $LogFile; }
-  ErrCont(){    [[ LogLevel -ge 0 ]] && printf '%0.7s%s\n' "$pad" "$1" >> $LogFile; }
+  DebugCont(){  ((LogLevel >= 3)) && printf '%0.7s%s\n' "$pad" "$1" >> $LogFile; }
+  InformCont(){ ((LogLevel >= 2)) && printf '%0.6s%s\n' "$pad" "$1" >> $LogFile; }
+  WarnCont(){   ((LogLevel >= 1)) && printf '%0.9s%s\n' "$pad" "$1" >> $LogFile; }
+  ErrCont(){    ((LogLevel >= 0)) && printf '%0.7s%s\n' "$pad" "$1" >> $LogFile; }
 
 else
   printf 'ERROR: %s\n' 'The LogType option, if provided, must be one of: "both"; "logfile"; "stdout".'
