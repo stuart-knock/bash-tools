@@ -50,6 +50,24 @@
 #      the LogLevel to 2 in the event of warnings and 3 in the event of errors.
 #TODO: Consider making the function names more explicit by prepending Log
 #TODO: Consider colourising the terminal part of the output.
+#    redtxt='\e[0;31m' # Red
+#    grntxt='\e[0;32m' # Green
+#    orgtxt='\e[0;33m' # Orange-ish
+#    blutxt='\e[0;34m' # Blue
+#    redbld='\e[1;31m' # Bold Red
+#    grnbld='\e[1;32m' # Bold Green
+#    orgbld='\e[1;33m' # Bold Orange-ish
+#    blubld='\e[1;34m' # Bold Blue
+#    clrreset='\e[0m'
+#  then use,
+#    "${redbld}ERROR:${clrreset} "
+#    "${orgbld}WARNING:${clrreset} "
+#    "${blubld}INFO:${clrreset} "
+#    "${grnbld}DEBUG:${clrreset} "
+#  so,
+#    printf '${redtxt}ERROR:${clrreset} %s\n'   "message"
+#  NOTE: will need to strip them when sending to file...
+#    sed -r "s/\x1B\[([0-1];)?[0-4]{1,2}m//g"
 #TODO: Consider making indentation on Cont[inuation] lines a standard 4 spaces.
 #TODO: Enable different "LogLevel"s for file and stdout.
 
@@ -77,18 +95,23 @@ LogType='both'
 
 #The type of logging to do, or more specifically the type of destination for messages.
 #The options are 'both'[default] | 'logfile' | 'stdout'
-(($# > 1)) && { printf 'ERROR: %s\n' "$0 take only 1 arg" ; exit 1 ; }
+(($# > 1)) && { printf '${redbld}ERROR:${clrreset} %s\n' "$0 take only 1 arg" ; exit 1 ; }
 (($# == 1)) && declare -r LogType=$1 || declare -r LogType
 
-declare -r pad="          " #needs to be >= number of spaces for the largest X below in %0.Xs
+declare -r pad='           ' #needs to be >= number of spaces for the largest X below in %0.Xs
+declare -r redbld='\e[1;31m' # Bold Red
+declare -r grnbld='\e[1;32m' # Bold Green
+declare -r orgbld='\e[1;33m' # Bold Orange-ish
+declare -r blubld='\e[1;34m' # Bold Blue
+declare -r clrreset='\e[0m'  # Resets the colour to default
 
 if [ "$LogType" = "both" ] ; then
   #Functions defining the different logging messages, sent to logfile & stdout
   #sleep is a hack to avoid wrong order in file when *Cont is used, and apparently processes faster leading to out of order file content. Maybe put in start of *Cont???
-  Debug(){  ((LogLevel >= 3)) && printf "DEBUG: %s\n"   "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
-  Inform(){ ((LogLevel >= 2)) && printf "INFO: %s\n"    "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
-  Warn(){   ((LogLevel >= 1)) && printf "WARNING: %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
-  Err(){    ((LogLevel >= 0)) && printf "ERROR: %s\n"   "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" >> $LogFile); sleep 0.002; }
+  Debug(){  ((LogLevel >= 3)) && printf "${grnbld}DEBUG:${clrreset} %s\n"   "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "s/\x1B\[([0-1];)?[0-4]{1,2}m//g" >> $LogFile); sleep 0.002; }
+  Inform(){ ((LogLevel >= 2)) && printf "${blubld}INFO:${clrreset} %s\n"    "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "s/\x1B\[([0-1];)?[0-4]{1,2}m//g" >> $LogFile); sleep 0.002; }
+  Warn(){   ((LogLevel >= 1)) && printf "${orgbld}WARNING:${clrreset} %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "s/\x1B\[([0-1];)?[0-4]{1,2}m//g" >> $LogFile); sleep 0.002; }
+  Err(){    ((LogLevel >= 0)) && printf "${redbld}ERROR:${clrreset} %s\n"   "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "s/\x1B\[([0-1];)?[0-4]{1,2}m//g" >> $LogFile); sleep 0.002; }
 
   #Use for multiple lines of a single message, sent to logfile & stdout
   DebugCont(){  ((LogLevel >= 3)) && printf '%0.7s%s\n' "$pad" "$1" | tee -a $LogFile; }
@@ -98,10 +121,10 @@ if [ "$LogType" = "both" ] ; then
 
 elif [ "$LogType" = "stdout" ] ; then
   #Functions defining the different logging messages, no-logfile==only-stdout
-  Debug(){  ((LogLevel >= 3)) && printf 'DEBUG: %s\n'   "$1" ; }
-  Inform(){ ((LogLevel >= 2)) && printf 'INFO: %s\n'    "$1" ; }
-  Warn(){   ((LogLevel >= 1)) && printf 'WARNING: %s\n' "$1" ; }
-  Err(){    ((LogLevel >= 0)) && printf 'ERROR: %s\n'   "$1" ; }
+  Debug(){  ((LogLevel >= 3)) && printf '${grnbld}DEBUG:${clrreset} %s\n'   "$1" ; }
+  Inform(){ ((LogLevel >= 2)) && printf '${blubld}INFO:${clrreset} %s\n'    "$1" ; }
+  Warn(){   ((LogLevel >= 1)) && printf '${orgbld}WARNING:${clrreset} %s\n' "$1" ; }
+  Err(){    ((LogLevel >= 0)) && printf '${redbld}ERROR:${clrreset} %s\n'   "$1" ; }
 
   #Use for multiple lines of a single message, no-logfile==only-stdout
   DebugCont(){  ((LogLevel >= 3)) && printf '%0.7s%s\n' "$pad" "$1" ; }
@@ -123,7 +146,7 @@ elif [ "$LogType" = "logfile" ] ; then
   ErrCont(){    ((LogLevel >= 0)) && printf '%0.7s%s\n' "$pad" "$1" >> $LogFile; }
 
 else
-  printf 'ERROR: %s\n' 'The LogType option, if provided, must be one of: "both"; "logfile"; "stdout".'
+  printf '${redbld}ERROR:${clrreset} %s\n' 'The LogType option, if provided, must be one of: "both"; "logfile"; "stdout".'
   exit 1
 fi
 
