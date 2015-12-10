@@ -67,7 +67,7 @@
 #    1=adds warnings;
 #    2=adds more information;
 #    3=provides debugging output.
-declare -i LogLevel=2
+[[ "$LogLevel" = "" ]] && declare -i LogLevel=2 || declare -i LogLevel
 
 #Default log file name, only set if one isn't already 
 [[ "$LogFile" = "" ]] && LogFile='default_bashlogging.log'
@@ -77,7 +77,7 @@ declare -i LogLevel=2
 #default set here can only be overridden when source[ing] bashlogging, eg:
 #    source bashlogging 'logfile' #Only send logging messages to file, not stdout.
 #and not after sourcing, as can be done with LogLevel and LogFile.
-LogType='both'
+[[ "$LogType" = "" ]] && LogType='both'
 
 #^^^^----------- DEFAULT USER SETTINGS ABOVE THIS LINE ------------------^^^^#
 
@@ -89,9 +89,16 @@ declare -r blubld='\e[1;34m' # Bold Blue
 declare -r clrreset='\e[0m'  # Resets the colour to default
 
 #Make sure we were sourced with a reasonable number of args, exit with error message if we weren't.
-(($# > 1)) && { printf '${redbld}ERROR:${clrreset} %s\n' "$0 take only 1 arg" ; exit 1 ; }
+(($# > 1)) && { printf '${redbld}ERROR:${clrreset} %s\n' "$0 takes at most 1 arg" ; exit 1 ; }
 #If we were called with an arg use it, either way make LogType readonly so it can't be corrupted.
-(($# == 1)) && declare -r LogType=$1 || declare -r LogType
+if (($# = 1)) && [[ "$1" =~ ^(logfile|stdout|both)$ ]] ; then
+  declare -r LogType=$1
+elif (($# = 0)) && [[ "$LogType" =~ ^(logfile|stdout|both)$ ]] ; then
+  declare -r LogType
+else
+  printf '${redbld}ERROR:${clrreset} %s\n' "For $0 LogType must be 'logfile'|'stdout'|'both'."
+  exit 1
+fi
 
 if [ "$LogType" = "both" ] ; then
   #Functions defining the different logging messages, sent to logfile & stdout
