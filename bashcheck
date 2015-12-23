@@ -47,6 +47,7 @@ builtins="agrep awk bind break caller case cat cd chmod chown cp curl cut
           source su sudo tail tee test then tr true type typeset ulimit unalias
           unset wait while who whoami xargs"
 
+#TODO: switch to using bashlogging
 #If "Enabled", display extra information for debugging purposes.
 DEBUGMODE=""
 
@@ -56,6 +57,11 @@ DEBUGMODE=""
 #TODO: Can't figure out how to prevent expansion of ${FUNCNAME} but still have
 #  it properly expand inside the function when used as a printf format.
 #ferrfmt='ERROR: ${FUNCNAME}(): %s\n'
+
+#TODO: Allow for input variable, possibly a file or two, that adds variable and 
+#  function names to check just for this run. Useful for large projects where you
+#  want to make sure no core variables or functions are being clobbered by other 
+#  parts of the script.
 
 # Check a Bash script for variable definitions that may clobber system variables
 checkAssignment(){
