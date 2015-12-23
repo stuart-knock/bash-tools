@@ -59,6 +59,7 @@
 #TODO: Consider making indentation on Cont[inuation] lines a standard 4 spaces.
 #TODO: Enable different "LogLevel"s for file and stdout.
 #TODO: the fraction of a second sleep works for GNU/Linux sleep, but not necessarily others...
+#TODO: Consider redirecting the stdout component of the Err functions to stderr
 
 #Default logging level, controls the type of bashlogging messages reported.
 #This can be modified at any point in a calling script to increase/decrease
@@ -91,9 +92,9 @@ declare -r clrreset='\e[0m'  # Resets the colour to default
 #Make sure we were sourced with a reasonable number of args, exit with error message if we weren't.
 (($# > 1)) && { printf '${redbld}ERROR:${clrreset} %s\n' "$0 takes at most 1 arg" ; exit 1 ; }
 #If we were called with an arg use it, either way make LogType readonly so it can't be corrupted.
-if (($# = 1)) && [[ "$1" =~ ^(logfile|stdout|both)$ ]] ; then
+if (($# == 1)) && [[ "$1" =~ ^(logfile|stdout|both)$ ]] ; then
   declare -r LogType=$1
-elif (($# = 0)) && [[ "$LogType" =~ ^(logfile|stdout|both)$ ]] ; then
+elif (($# == 0)) && [[ "$LogType" =~ ^(logfile|stdout|both)$ ]] ; then
   declare -r LogType
 else
   printf '${redbld}ERROR:${clrreset} %s\n' "For $0 LogType must be 'logfile'|'stdout'|'both'."
@@ -101,7 +102,7 @@ else
 fi
 
 if [ "$LogType" = "both" ] ; then
-  #Functions defining the different logging messages, sent to logfile & stdout
+  #Functions defining the different logging messages, sent to logfile & stdout.
   #sleep is a hack to avoid wrong order in file when *Cont is used, and apparently processes faster leading to out of order file content.
   Debug(){  ((LogLevel >= 3)) && printf "${grnbld}DEBUG:${clrreset} %s\n"   "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "s/\x1B\[([0-1];)?[0-4]{1,2}m//g" >> "$LogFile"); sleep 0.002; }
   Inform(){ ((LogLevel >= 2)) && printf "${blubld}INFO:${clrreset} %s\n"    "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "s/\x1B\[([0-1];)?[0-4]{1,2}m//g" >> "$LogFile"); sleep 0.002; }
