@@ -11,7 +11,7 @@
 #  myfunc(){
 #    #Then all that is left is to cover your script and functions with 
 #    #useful messages:
-#    Debug "ENTERING: ${FUNCNAME}()"
+#    Debug "ENTERING: ${FUNCNAME[0]}() ; CALLED FROM: ${FUNCNAME[1]}()"
 #    DebugCont "Called with $# arguments"
 #    local i=0 ; for var in "$@"; do ((++i)) ; DebugCont "arg $i = ${var}"; done
 #    #DebugCont "arg 1 = $1"
@@ -71,7 +71,7 @@
 #    1=adds warnings;
 #    2=adds more information;
 #    3=provides debugging output.
-[[ "$LogLevel" = "" ]] && declare -i LogLevel=2 || declare -i LogLevel
+if [[ "$LogLevel" = "" ]]; then declare -i LogLevel=2; else declare -i LogLevel; fi
 
 #Default log file name, only set if one isn't already 
 [[ "$LogFile" = "" ]] && LogFile='default_bashlogging.log'
