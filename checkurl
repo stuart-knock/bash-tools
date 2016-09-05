@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/usr/bin/env bash
 
 #USAGE: checkurl "http://url-to-check.org"
 #
