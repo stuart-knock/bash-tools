@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/usr/bin/env bash
 
 #USAGE: bashcheck filename
 #
@@ -7,10 +7,14 @@
 #DESCRIPTION:
 # Does a quick and dirty check of a bash script printing any potentially major
 # problems to stdout, specifically it checks for:
-#   +Assigning values to system variables in an unconstrained way, ie a way 
+#   +Assigning values to system variables in an unconstrained way, ie a way
 #    that will have side effects on the callers environment.
-#   +Assigning variables or defining functions using Built-in function names or 
-#    keywords.
+#   +Assigning variables or defining functions using Built-in function names
+#    or keywords.
+#
+# For more complete and systematic checking, I highly recommend 'shellcheck':
+#    http://www.shellcheck.net/
+#    https://github.com/koalaman/shellcheck
 #
 # Author: Stuart A. Knock
 # Originally Written: 2015-11-23
@@ -39,13 +43,13 @@ sysvars="BASH BASH_ARGC BASH_ARGV BASH_LINENO BASH_SOURCE BASH_VERSINFO
          USER USERNAME XAUTHORITY"
 
 #Built in and "standard" functions to check for overwrite or reassignment
-builtins="agrep awk bind break caller case cat cd chmod chown cp curl cut
-          declare df dirs do done du echo egrep enable esac eval exec exit
-          export false fi for function getopts grep hash head help id in info let
-          line ln local logout ls mapfile mkdir mv mysql popd print printf ps
-          pushd pwd read readarray readonly return rm sed shift shopt sleep sort
-          source su sudo tail tee test then tr true type typeset ulimit unalias
-          unset wait while who whoami xargs"
+builtins="agrep awk bash bind break caller case cat cd chmod chown command cp
+          curl cut declare df dirs do done du echo egrep enable esac eval exec
+          exit export false fi find for function getopts grep gzip hash head
+          help id if in info let line ln local logout ls mapfile mkdir mv mysql
+          popd print printf ps pushd pwd read readarray readonly return rm sed
+          shift shopt sleep sort source su sudo tail tee test then tr true type
+          typeset ulimit unalias uniq unset wait wc while who whoami xargs"
 
 #TODO: switch to using bashlogging
 #If "Enabled", display extra information for debugging purposes.
@@ -58,18 +62,18 @@ DEBUGMODE=""
 #  it properly expand inside the function when used as a printf format.
 #ferrfmt='ERROR: ${FUNCNAME}(): %s\n'
 
-#TODO: Allow for input variable, possibly a file or two, that adds variable and 
+#TODO: Allow for input variable, possibly a file or two, that adds variable and
 #  function names to check just for this run. Useful for large projects where you
-#  want to make sure no core variables or functions are being clobbered by other 
+#  want to make sure no core variables or functions are being clobbered by other
 #  parts of the script.
 
 # Check a Bash script for variable definitions that may clobber system variables
-checkAssignment(){
-  test "$DEBUGMODE" = "Enabled" && printf '%s\n' "ENTERING: ${FUNCNAME}()"
+check_assignment(){
+  [[ "$DEBUGMODE" = "Enabled" ]] && printf '%s\n' "ENTERING: ${FUNCNAME}()"
   local errfmt="ERROR: ${FUNCNAME}(): %s\n"
-  [[ $# != 1 ]] && { printf "$errfmt" "only supports one argument"; return 1; }
+  [[ "$#" != '1' ]] && { printf "$errfmt" "only supports one argument"; return 1; }
   local chkscrpt="$1"
-  [[ -f $chkscrpt ]] || { printf "$errfmt" "can't find script: $chkscrpt"; return 1; }
+  [[ -f "$chkscrpt" ]] || { printf "$errfmt" "can't find script: $chkscrpt"; return 1; }
 
   printf "Checking sysvars for possible overwriting:\n"
 
@@ -77,13 +81,13 @@ checkAssignment(){
   local overwritevars=$(printf "("$(printf '%s|' $sysvars)')=' | sed s/'|)='/')='/)
 
   #Match whole words followed immediately by "="
-  grep --colour -nwE $overwritevars $chkscrpt
-  [[ $? != 0 ]] && echo "No problems found" || printf '\n'
+  grep --colour -nwE $overwritevars "$chkscrpt"
+  if [[ "$?" != 0 ]]; then echo "No problems found"; else printf '\n'; fi
 
   #TODO: Exclude cases where the occurrence is commented or proceeded by local
   #      or a similar construct that protects the global variable.
 
-  if [[ $fussiness == "Pernickety" ]] ; then
+  if [[ "$fussiness" == "Pernickety" ]] ; then
   	#While assigning a variable with an existing function name shouldn't cause
   	#any problem, it could make things confusing, so if we're being extra fussy
   	#we should avoid it.
@@ -91,28 +95,28 @@ checkAssignment(){
     #Convert builtins variable into a regex.
   	local overwritevars=$(printf "("$(printf '%s|' $builtins)')=' | sed s/'|)='/')='/)
     #Match whole words followed immediately by "="
-    grep --colour -nwE $overwritevars $chkscrpt
-    [[ $? != 0 ]] && echo "  No problems found" || printf '\n'
+    grep --colour -nwE $overwritevars "$chkscrpt"
+    if [[ "$?" != 0 ]]; then echo "  No problems found"; else printf '\n'; fi
   fi
   return 0
 }
 
-# Check a Bash script for value setting or function definitions using common 
+# Check a Bash script for value setting or function definitions using common
 # function names or keywords, eg test, exit, local done
-checkRedefinition(){
-  test "$DEBUGMODE" = "Enabled" && printf '%s\n' "ENTERING: ${FUNCNAME}()"
+check_redefinition(){
+  [[ "$DEBUGMODE" = "Enabled" ]] && printf '%s\n' "ENTERING: ${FUNCNAME}()"
   local errfmt="ERROR: ${FUNCNAME}(): %s\n"
-  [[ $# != 1 ]] && { printf "$errfmt" "only supports one argument\n"; return 1; }
+  [[ "$#" != '1' ]] && { printf "$errfmt" "only supports one argument\n"; return 1; }
   local chkscrpt="$1"
-  [[ -f $chkscrpt ]] || { printf "$errfmt" "can't find script: $chkscrpt\n"; return 1; }
+  [[ -f "$chkscrpt" ]] || { printf "$errfmt" "can't find script: $chkscrpt\n"; return 1; }
 
   printf "Checking builtins for possible redefinition:\n"
   #Convert sysvars variable into a regex.
   local redeffuncs=$(printf "("$(printf '%s|' $builtins)')\s*\(\s*\)\s*\{' | sed s/'|)'/')'/)
 
   #Match whole words followed immediately by "(){", allowing for spaces before
-  grep --colour -nwE $redeffuncs $chkscrpt
-  [[ $? != 0 ]] && echo "  No problems found" || printf '\n'
+  grep --colour -nwE $redeffuncs "$chkscrpt"
+  if [[ "$?" != 0 ]]; then echo "  No problems found"; else printf '\n'; fi
 
   #TODO: Exclude cases where the occurrence is commented...
 
@@ -125,16 +129,16 @@ checkRedefinition(){
 ###############################################################################
 
 # make sure filename supplied as command line arg else die
-[[ $# != 1 ]] && { printf "  Usage: $0 filename\n"; exit 1; }
+[[ "$#" != '1' ]] && { printf "  Usage: $0 filename\n"; exit 1; }
 
 filename="$1"
 
 printf "Running bashcheck on file: $filename\n"
 
-checkAssignment $filename
-retCA=$?
+check_assignment "$filename"
+retCA="$?"
 
-checkRedefinition $filename
-retCR=$?
+check_redefinition "$filename"
+retCR="$?"
 
 exit $((retCA||retCR))
