@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/usr/bin/env bash
 
 #USAGE:
 #  #Source the file to get access to all the variable and function definitions.
