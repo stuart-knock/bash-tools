@@ -124,6 +124,9 @@ if [ "$LogType" = "both" ] ; then
   WarnCont(){   ((LogLevel >= 1)) && printf '%0.9s%s\n' "$pad" "$1" | tee -a "$LogFile"; }
   ErrCont(){    ((LogLevel >= 0)) && printf '%0.7s%s\n' "$pad" "$1" | tee -a "$LogFile"; }
 
+  #Use to pipe output from another command to logs, eg: command 2>&1 | err_pipe "command: "
+  err_pipe(){   while read msg; do msg="$1$msg"; ((LogLevel >= 0)) && printf '%s\n' "$msg" | tee -a "$LogFile"; done; }
+
 elif [ "$LogType" = "stdout" ] ; then
   #Functions defining the different logging messages, no-logfile==only-stdout
   Debug(){  ((LogLevel >= 3)) && printf "${grnbld}DEBUG:${clrreset} %s\n"   "$1" ; }
@@ -137,6 +140,9 @@ elif [ "$LogType" = "stdout" ] ; then
   WarnCont(){   ((LogLevel >= 1)) && printf '%0.9s%s\n' "$pad" "$1" ; }
   ErrCont(){    ((LogLevel >= 0)) && printf '%0.7s%s\n' "$pad" "$1" ; }
 
+  #Use to pipe output from another command to logs, eg: command 2>&1 | err_pipe "command: "
+  err_pipe(){   while read msg; do msg="$1$msg"; ((LogLevel >= 0)) && printf '%s\n' "$msg" ; done; }
+
 elif [ "$LogType" = "logfile" ] ; then
   #Functions defining the different logging messages, no-stdout==only-logfile
   Debug(){  ((LogLevel >= 3)) && printf "[$(date +%FT%T)] DEBUG: %s\n"   "$1" >> "$LogFile"; }
@@ -149,6 +155,9 @@ elif [ "$LogType" = "logfile" ] ; then
   InformCont(){ ((LogLevel >= 2)) && printf '%0.6s%s\n' "$pad" "$1" >> "$LogFile"; }
   WarnCont(){   ((LogLevel >= 1)) && printf '%0.9s%s\n' "$pad" "$1" >> "$LogFile"; }
   ErrCont(){    ((LogLevel >= 0)) && printf '%0.7s%s\n' "$pad" "$1" >> "$LogFile"; }
+
+  #Use to pipe output from another command to logs, eg: command 2>&1 | err_pipe "command: "
+  err_pipe(){   while read msg; do msg="$1$msg"; ((LogLevel >= 0)) && printf '%s\n' "$msg" >> "$LogFile"; done; }
 
 else
   printf "${redbld}ERROR:${clrreset} %s\n" 'The LogType option, if provided, must be one of: "both"; "logfile"; "stdout".'
