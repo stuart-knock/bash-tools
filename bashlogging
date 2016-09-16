@@ -125,7 +125,7 @@ if [ "$LogType" = "both" ] ; then
   ErrCont(){    ((LogLevel >= 0)) && printf '%0.7s%s\n' "$pad" "$1" | tee -a "$LogFile"; }
 
   #Use to pipe output from another command to logs, eg: command 2>&1 | err_pipe "command: "
-  err_pipe(){   while read msg; do msg="$1$msg"; ((LogLevel >= 0)) && printf '%s\n' "$msg" | tee -a "$LogFile"; done; }
+  err_pipe(){ while IFS='' read -r msg; do msg="$1$msg"; ((LogLevel >= 0)) && printf '%s\n' "$msg" | tee -a "$LogFile"; done; }
 
 elif [ "$LogType" = "stdout" ] ; then
   #Functions defining the different logging messages, no-logfile==only-stdout
@@ -141,7 +141,7 @@ elif [ "$LogType" = "stdout" ] ; then
   ErrCont(){    ((LogLevel >= 0)) && printf '%0.7s%s\n' "$pad" "$1" ; }
 
   #Use to pipe output from another command to logs, eg: command 2>&1 | err_pipe "command: "
-  err_pipe(){   while read msg; do msg="$1$msg"; ((LogLevel >= 0)) && printf '%s\n' "$msg" ; done; }
+  err_pipe(){ while IFS='' read -r msg; do msg="$1$msg"; ((LogLevel >= 0)) && printf '%s\n' "$msg" ; done; }
 
 elif [ "$LogType" = "logfile" ] ; then
   #Functions defining the different logging messages, no-stdout==only-logfile
@@ -157,7 +157,7 @@ elif [ "$LogType" = "logfile" ] ; then
   ErrCont(){    ((LogLevel >= 0)) && printf '%0.7s%s\n' "$pad" "$1" >> "$LogFile"; }
 
   #Use to pipe output from another command to logs, eg: command 2>&1 | err_pipe "command: "
-  err_pipe(){   while read msg; do msg="$1$msg"; ((LogLevel >= 0)) && printf '%s\n' "$msg" >> "$LogFile"; done; }
+  err_pipe(){ while IFS='' read -r msg; do msg="$1$msg"; ((LogLevel >= 0)) && printf '%s\n' "$msg" >> "$LogFile"; done; }
 
 else
   printf "${redbld}ERROR:${clrreset} %s\n" 'The LogType option, if provided, must be one of: "both"; "logfile"; "stdout".'
