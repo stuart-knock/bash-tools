@@ -112,7 +112,7 @@ else
   return 1
 fi
 
-if[[ "$LogType" = @(both|filestdout) ]] ; then
+if [[ "$LogType" = @(both|filestdout) ]] ; then
   #Functions defining the different logging messages, sent to logfile & stdout.
   #sleep is a hack to avoid wrong order in file when *Cont is used, and apparently processes faster leading to out of order file content.
   Debug(){  ((LogLevel >= 3)) && printf "$DEBUG_CLR %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LogFile"); sleep 0.002; }
@@ -130,7 +130,7 @@ if[[ "$LogType" = @(both|filestdout) ]] ; then
   #Use to pipe output from another command to logs, eg: command 2>&1 | err_pipe "command: "
   err_pipe(){ while IFS='' read -r msg; do msg="$1$msg"; ((LogLevel >= 0)) && printf '%s\n' "$msg" | tee -a "$LogFile"; done; }
 
-if[[ "$LogType" = 'filestderr') ]] ; then
+elif [[ "$LogType" = 'filestderr' ]] ; then
   #Functions defining the different logging messages, sent to logfile & stderr.
   #sleep is a hack to avoid wrong order in file when *Cont is used, and apparently processes faster leading to out of order file content.
   Debug(){  ((LogLevel >= 3)) && printf "$DEBUG_CLR %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LogFile") 1>&2 ; sleep 0.002; }
