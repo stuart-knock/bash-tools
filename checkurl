@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-#USAGE: checkurl "http://url-to-check.org"
+#USAGE: checkurl 'http://url-to-check.org'
 #
-#EXAMPLE: checkurl "https://xkcd.com/1319/"
+#EXAMPLE: checkurl 'https://xkcd.com/1319/'
 #
 #REQUIRES:
 #  bashlogging
@@ -27,44 +27,46 @@
 knowngoodurl='http://www.google.com'
 
 #Time to wait before we decide the internet or a webpage isn't reachable.
+#You might want to make this shorter if called as part of a script, particularly
+#if it is called multiple times. Default: 2
 timetowait=2
 
 #Import some simple logging functionality
-source bashlogging
-LogFile="linkchecker.log"
-LogLevel=1 #Default to just showing warning and error messages.
+source 'bashlogging'
+LOGFILE='linkchecker.log'
+LOGLEVEL=1 #Default to just showing warning and error messages.
 #-----------------------------------------------------------------------------#
 
 #Fail early, fail often:
-[[ $# != 1 ]] && { printf "  Usage: $0 url\n"; exit 1; }
+(( $# != 1 )) && { err "  Usage: $0 'http://url-to-check.org'"; exit 1; }
 
 #Use a known-to-be-good URL as a proxy for a functional interweb connection.
-Debug "Checking access to $knowngoodurl as a proxy for web access."
-curl --connect-timeout $timetowait --output /dev/null --silent --head --fail $knowngoodurl
+debug "Checking access to $knowngoodurl as a proxy for web access."
+curl --connect-timeout $timetowait --output /dev/null --silent --head --fail "$knowngoodurl"
 stateoftheweb=$?
 
 #If the interwebs are working, check for the actual page
-if [ "$stateoftheweb" = "0" ] ; then
-  Debug "The web is alive... it's alive I tell you."
-  url=$1
-  Inform "Checking for accessibility of $url"
+if [[ "$stateoftheweb" = "0" ]]; then
+  debug "The web is alive... it's alive I tell you."
+  url="$1"
+  inform "Checking for accessibility of $url"
   #Request just the HEAD of the webpage, throw away output, and exit with a failure state.
   curl --output /dev/null --silent --head --fail "$url"
   headaccess=$?
-  Debug "headaccess=$headaccess"
+  debug "headaccess=$headaccess"
   #Some servers, apparently, deny HEAD requests, so we'll double check to be safe
-  [ "$headaccess" != "0" ] && curl --output /dev/null --silent --fail -r 0-0 "$url" ; firstbyteaccess=$?
-  Debug "firstbyteaccess=$firstbyteaccess"
+  [[ "$headaccess" != "0" ]] && curl --output /dev/null --silent --fail -r 0-0 "$url" ; firstbyteaccess=$?
+  debug "firstbyteaccess=$firstbyteaccess"
 
-  #If either method was successful, otherwise the page is, at least currently, inaccessible.
-  if [ "$headaccess" = "0" ] || [ "$firstbyteaccess" = "0" ] ; then
-    Inform "URL is ACCESIBLE: $url"
+  #If either method was successful,
+  if [[ "$headaccess" = "0" || "$firstbyteaccess" = "0" ]]; then
+    inform "URL is ACCESIBLE: $url"
     exit 0
-  else
-    Warn "URL is INACCESIBLE: $url"
+  else #otherwise the page is, at least currently, inaccessible.
+    warn "URL is INACCESIBLE: $url"
     exit 1
   fi
 else
-  Err "The interwebs are broken..."
+  err "The interwebs are broken..."
   exit 1
 fi
