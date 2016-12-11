@@ -2,12 +2,19 @@
 
 #USAGE:
 #  #Source the file to get access to all the variable and function definitions.
-#  source bashlogging [LOGTYPE]
-#  #LOGTYPE argument ['stdout'|'stderr'|'file'|'stdoutfile'(default)|'stderrfile']
-#  #directs output to stdout, stderr, file or both. This can only be set while "source"ing.
-#  #Then you can override default LOGFILE and LOGLEVEL to suit your needs.
+#
+#  #If you want a non-default LOGTYPE it must be specified before "source"ing.
+#  #Options: ['stdout'|'stderr'|'file'|'stdoutfile'(default)|'stderrfile']
+#  LOGTYPE='stderr'
+#  source bashlogging
+#  #LOGTYPE determines where to direct logging messages. Once you've "source"d
+#  #bashlogging this parameter is fixed and cannot be changed.
+#
+#  #The other two parameters are LOGFILE and LOGLEVEL, these can be set before
+#  #or after "source"ing bashlogging, or changed at any point to suit your needs.
 #  LOGFILE='path/to/mylogfile.log'
 #  LOGLEVEL=3  #I have a problem with my script that I need to identify.
+#
 #  myfunc(){
 #    #Then all that is left is to cover your script and functions with 
 #    #useful messages:
@@ -84,10 +91,9 @@ if [[ -z "$LOGLEVEL" ]]; then declare -gi LOGLEVEL=2; else declare -gi LOGLEVEL;
 
 #Default type of logging to do, or more specifically the type of destination
 #for logging messages. Options are ['logfile'|'stdout'|'both'(default)], the
-#default set here can only be overridden when source[ing] bashlogging, eg:
-#    source bashlogging 'logfile' #Only send logging messages to file, not stdout.
-#and not after sourcing, as can be done with LOGLEVEL and LOGFILE.
-[[ -z "$LOGTYPE" ]] && LOGTYPE='both'
+#default set here can only be overridden before source[ing] bashlogging, and
+#not after sourcing, as can be done with LOGLEVEL and LOGFILE.
+if [[ -z "$LOGTYPE" ]]; then declare -gr LOGTYPE='both'; else declare -gr LOGTYPE; fi
 
 #^^^^----------- DEFAULT USER SETTINGS ABOVE THIS LINE ------------------^^^^#
 
@@ -98,15 +104,8 @@ declare -gr WARN_CLR='\e[1;33mWARNING:\e[0m' # Bold Yellow-ish
 declare -gr ERROR_CLR='\e[1;31mERROR:\e[0m'  # Bold Red
 declare -gr STRIP_CLR='s/\x1B\[([0-1];)?[0-4]{1,2}m//g' #A regex to strip colour tags
 
-#Make sure we were sourced with a reasonable number of args, return with error message if we weren't.
-(($# > 1)) && { printf "$ERROR_CLR %s\n" "${BASH_SOURCE[0]} takes at most 1 arg" ; return 1 ; }
-
-#If we were called with an arg use it, either way make LOGTYPE readonly to prevent corruption.
-if (($# == 1)) && [[ "$1" =~ ^(logfile|file|stdout|stderr|both|filestdout|filestderr)$ ]] ; then
-  declare -gr LOGTYPE="$1"
-elif (($# == 0)) && [[ "$LOGTYPE" =~ ^(logfile|file|stdout|stderr|both|filestdout|filestderr)$ ]] ; then
-  declare -gr LOGTYPE
-else
+#Return an error message if LOGTYPE isn't set correctly.
+if [[ ! "$LOGTYPE" =~ ^(logfile|file|stdout|stderr|both|filestdout|filestderr)$ ]]; then
   printf "$ERROR_CLR %s\n" "For ${BASH_SOURCE[0]} LOGTYPE must be 'logfile'|'stdout'|'both'."
   return 1
 fi
