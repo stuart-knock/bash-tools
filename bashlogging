@@ -2,33 +2,33 @@
 
 #USAGE:
 #  #Source the file to get access to all the variable and function definitions.
-#  source bashlogging [LogType]
-#  #LogType argument ['stdout'|'stderr'|'file'|'stdoutfile'(default)|'stderrfile']
-#  #directs output to stdout, file or both. This can only be set while "source"ing.
-#  #Then you can override default LogFile and LogLevel to suit your needs.
-#  LogFile='path/to/mylogfile.log'
-#  LogLevel=3  #I have a problem with my script that I need to identify.
+#  source bashlogging [LOGTYPE]
+#  #LOGTYPE argument ['stdout'|'stderr'|'file'|'stdoutfile'(default)|'stderrfile']
+#  #directs output to stdout, stderr, file or both. This can only be set while "source"ing.
+#  #Then you can override default LOGFILE and LOGLEVEL to suit your needs.
+#  LOGFILE='path/to/mylogfile.log'
+#  LOGLEVEL=3  #I have a problem with my script that I need to identify.
 #  myfunc(){
 #    #Then all that is left is to cover your script and functions with 
 #    #useful messages:
-#    Debug "ENTERING: ${FUNCNAME[0]}() ; CALLED FROM: ${FUNCNAME[1]}()"
-#    DebugCont "Called with $# arguments"
-#    local i=0 ; for var in "$@"; do ((++i)) ; DebugCont "arg $i = ${var}"; done
-#    #DebugCont "arg 1 = $1"
-#    #DebugCont "arg 2 = $2"
-#    #DebugCont "arg 3 = $3"
-#    DebugCont "ImportantGlobalParamater = $ImportantGlobalParamater"
-#    Inform 'That important thing is being calculated now...'
-#    #You can pipe another commands stdout to your logs
+#    debug "ENTERING: ${FUNCNAME[0]}() ; CALLED FROM: ${FUNCNAME[1]}()"
+#    debugcont "Called with $# arguments"
+#    local i=0 ; for var in "$@"; do ((++i)) ; debugcont "arg $i = ${var}"; done
+#    #debugcont "arg 1 = $1"
+#    #debugcont "arg 2 = $2"
+#    #debugcont "arg 3 = $3"
+#    debugcont "ImportantGlobalParamater = $ImportantGlobalParamater"
+#    inform 'That important thing is being calculated now...'
+#    #You can pipe another command's stdout to your logs
 #    command1 | err_pipe "command1: "
-#    #Or with stderr as well
+#    #Or with the command's stderr as well
 #    command1 2>&1 | err_pipe "command1: "
-#    #If using one of the stderr or file-only LogTypes, you can message mid pipe
-#    command1 | tee >(Debug "Stuff is happening") | command2
-#    Warn 'The ducks weren't all in a row, but we'll forge on.'
-#    Err 'It all went horribly wrong, no value will be returned.'
-#    ErrCont "The value of x was $y and j was $z, try passing q to ${FUNCNAME}()"
-#    ErrCont "You may also need to 'chmod a+rwx yourfile.txt' and do a rain dance."
+#    #If using one of the stderr or file-only LOGTYPEs, you can message mid pipe
+#    command1 | tee >(debug "Stuff is happening") | command2
+#    warn 'The ducks weren't all in a row, but we'll forge on.'
+#    err 'It all went horribly wrong, no value will be returned.'
+#    errcont "The value of x was $y and j was $z, try passing q to ${FUNCNAME}()"
+#    errcont "You may also need to 'chmod a+rwx yourfile.txt' and do a rain dance."
 #  }
 #
 #REQUIRES:
@@ -39,22 +39,22 @@
 #
 #PROVIDES:
 #  #Message functions: for file output, prepends date & time
-#  Debug  -- For LogLevel >= 3, writes messages prepended with "DEBUG: "
-#  Inform -- For LogLevel >= 2, writes messages prepended with "INFORM: "
-#  Warn   -- For LogLevel >= 1, writes messages prepended with "WARNING: "
-#  Err    -- For LogLevel >= 0, writes messages prepended with "ERROR: "
+#  debug  -- For LOGLEVEL >= 3, writes messages prepended with "DEBUG: "
+#  inform -- For LOGLEVEL >= 2, writes messages prepended with "INFORM: "
+#  warn   -- For LOGLEVEL >= 1, writes messages prepended with "WARNING: "
+#  err    -- For LOGLEVEL >= 0, writes messages prepended with "ERROR: "
 #  #Continued/multiline message functions: these are indented without leading info.
-#  DebugCont  -- Continues a LogLevel 3 message.
-#  InformCont -- Continues a LogLevel 2 message.
-#  WarnCont   -- Continues a LogLevel 1 message.
-#  ErrCont    -- Continues a LogLevel 0 message.
+#  debugcont  -- Continues a LOGLEVEL 3 message.
+#  informcont -- Continues a LOGLEVEL 2 message.
+#  warncont   -- Continues a LOGLEVEL 1 message.
+#  errcont    -- Continues a LOGLEVEL 0 message.
 #  #Pipe output from another command to logs, eg: command 2>&1 | err_pipe "command: "
-#  err_pipe -- For LogLevel >= 0, write piped input to logs.
+#  err_pipe -- For LOGLEVEL >= 0, write piped input to logs.
 #
 #DESCRIPTION:
 # Defines several functions for fine grained control of logging information.
-# Writes different types of messages based on LogLevel. The messages are
-# sent to either stdout, stderr, file, or both based on the LogType argument.
+# Writes different types of messages based on LOGLEVEL. The messages are
+# sent to either stdout, stderr, file, or both based on the LOGTYPE argument.
 # The file output is prepended with date & time -- stdout/stderr aren't.
 #
 # Author: Stuart A. Knock
@@ -62,14 +62,12 @@
 #
 
 #TODO: Consider adding an AutoElevate ['Enabled'|'Disabled'] option, which automatically raises 
-#      the LogLevel to 2 in the event of warnings and 3 in the event of errors.
+#      the LOGLEVEL to 2 in the event of warnings and 3 in the event of errors.
 #TODO: Consider making indentation on Cont[inuation] lines a standard 4 spaces.
-#TODO: Enable different "LogLevel"s for file and stdout.
+#TODO: Enable different "LOGLEVEL"s for file and stdout/stderr.
 #TODO: the fraction of a second sleep works for GNU/Linux sleep, but not necessarily others... Solve order preservation some other way...
 #TODO: Consider copying stderr generated by the script to log file: see http://stackoverflow.com/questions/637827/redirect-stderr-and-stdout-in-a-bash-script
-#    exec 4>&2 2> >(tee >(xargs --null printf "[$(date +%FT%T)] ERROR: %s\n" >> "$LogFile") >&4)
-#TODO: Consider conforming to this: https://google.github.io/styleguide/shell.xml
-#      variable names ALLCAPS, function names all_lower_case
+#    exec 4>&2 2> >(tee >(xargs --null printf "[$(date +%FT%T)] ERROR: %s\n" >> "$LOGFILE") >&4)
 #TODO: Consider whether it's worth making the functions readonly to avoid accidental modification.
 
 #Default logging level, controls the type of bashlogging messages reported.
@@ -79,17 +77,17 @@
 #    1=adds warnings;
 #    2=adds more information;
 #    3=provides debugging output.
-if [[ -z "$LogLevel" ]]; then declare -gi LogLevel=2; else declare -gi LogLevel; fi
+if [[ -z "$LOGLEVEL" ]]; then declare -gi LOGLEVEL=2; else declare -gi LOGLEVEL; fi
 
 #Default log file name, only set if one isn't already 
-[[ -z "$LogFile" ]] && LogFile='default_bashlogging.log'
+[[ -z "$LOGFILE" ]] && LOGFILE='default_bashlogging.log'
 
 #Default type of logging to do, or more specifically the type of destination
 #for logging messages. Options are ['logfile'|'stdout'|'both'(default)], the
 #default set here can only be overridden when source[ing] bashlogging, eg:
 #    source bashlogging 'logfile' #Only send logging messages to file, not stdout.
-#and not after sourcing, as can be done with LogLevel and LogFile.
-[[ -z "$LogType" ]] && LogType='both'
+#and not after sourcing, as can be done with LOGLEVEL and LOGFILE.
+[[ -z "$LOGTYPE" ]] && LOGTYPE='both'
 
 #^^^^----------- DEFAULT USER SETTINGS ABOVE THIS LINE ------------------^^^^#
 
@@ -103,108 +101,109 @@ declare -gr STRIP_CLR='s/\x1B\[([0-1];)?[0-4]{1,2}m//g' #A regex to strip colour
 #Make sure we were sourced with a reasonable number of args, return with error message if we weren't.
 (($# > 1)) && { printf "$ERROR_CLR %s\n" "${BASH_SOURCE[0]} takes at most 1 arg" ; return 1 ; }
 
-#If we were called with an arg use it, either way make LogType readonly so it can't be corrupted.
+#If we were called with an arg use it, either way make LOGTYPE readonly to prevent corruption.
 if (($# == 1)) && [[ "$1" =~ ^(logfile|file|stdout|stderr|both|filestdout|filestderr)$ ]] ; then
-  declare -gr LogType="$1"
-elif (($# == 0)) && [[ "$LogType" =~ ^(logfile|file|stdout|stderr|both|filestdout|filestderr)$ ]] ; then
-  declare -gr LogType
+  declare -gr LOGTYPE="$1"
+elif (($# == 0)) && [[ "$LOGTYPE" =~ ^(logfile|file|stdout|stderr|both|filestdout|filestderr)$ ]] ; then
+  declare -gr LOGTYPE
 else
-  printf "$ERROR_CLR %s\n" "For ${BASH_SOURCE[0]} LogType must be 'logfile'|'stdout'|'both'."
+  printf "$ERROR_CLR %s\n" "For ${BASH_SOURCE[0]} LOGTYPE must be 'logfile'|'stdout'|'both'."
   return 1
 fi
 
-if [[ "$LogType" = @(both|filestdout) ]] ; then
+if [[ "$LOGTYPE" = @(both|filestdout) ]] ; then
   #Functions defining the different logging messages, sent to logfile & stdout.
   #sleep is a hack to avoid wrong order in file when *Cont is used, and apparently processes faster leading to out of order file content.
-  Debug(){  ((LogLevel >= 3)) && printf "$DEBUG_CLR %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LogFile"); sleep 0.002; }
-  Inform(){ ((LogLevel >= 2)) && printf "$INFO_CLR %s\n"  "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LogFile"); sleep 0.002; }
-  Warn(){   ((LogLevel >= 1)) && printf "$WARN_CLR %s\n"  "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LogFile"); sleep 0.002; }
-  Err(){    ((LogLevel >= 0)) && printf "$ERROR_CLR %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LogFile"); sleep 0.002; }
-  #Func: #If LogLevel appropriate #Prepend msg with Type #Pipe to stdout & process substitution: prepend Date&Time, strip colour tags #Redirect to file #Wait so order preserved
+  debug(){  ((LOGLEVEL >= 3)) && printf "$DEBUG_CLR %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LOGFILE"); sleep 0.002; }
+  inform(){ ((LOGLEVEL >= 2)) && printf "$INFO_CLR %s\n"  "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LOGFILE"); sleep 0.002; }
+  warn(){   ((LOGLEVEL >= 1)) && printf "$WARN_CLR %s\n"  "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LOGFILE"); sleep 0.002; }
+  err(){    ((LOGLEVEL >= 0)) && printf "$ERROR_CLR %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LOGFILE"); sleep 0.002; }
+  #Func: #If LOGLEVEL appropriate #Prepend msg with Type #Pipe to stdout & process substitution: prepend Date&Time, strip colour tags #Redirect to file #Wait so order preserved
 
   #Use for multiple lines of a single message, sent to logfile & stdout
-  DebugCont(){  ((LogLevel >= 3)) && printf '%0.7s%s\n' "$pad" "$1" | tee -a "$LogFile"; }
-  InformCont(){ ((LogLevel >= 2)) && printf '%0.6s%s\n' "$pad" "$1" | tee -a "$LogFile"; }
-  WarnCont(){   ((LogLevel >= 1)) && printf '%0.9s%s\n' "$pad" "$1" | tee -a "$LogFile"; }
-  ErrCont(){    ((LogLevel >= 0)) && printf '%0.7s%s\n' "$pad" "$1" | tee -a "$LogFile"; }
+  debugcont(){  ((LOGLEVEL >= 3)) && printf '%0.7s%s\n' "$pad" "$1" | tee -a "$LOGFILE"; }
+  informcont(){ ((LOGLEVEL >= 2)) && printf '%0.6s%s\n' "$pad" "$1" | tee -a "$LOGFILE"; }
+  warncont(){   ((LOGLEVEL >= 1)) && printf '%0.9s%s\n' "$pad" "$1" | tee -a "$LOGFILE"; }
+  errcont(){    ((LOGLEVEL >= 0)) && printf '%0.7s%s\n' "$pad" "$1" | tee -a "$LOGFILE"; }
 
   #Use to pipe output from another command to logs, eg: command 2>&1 | err_pipe "command: "
-  err_pipe(){ while IFS='' read -r msg; do msg="$1$msg"; ((LogLevel >= 0)) && printf '%s\n' "$msg" | tee -a "$LogFile"; done; }
+  err_pipe(){ while IFS='' read -r msg; do msg="$1$msg"; ((LOGLEVEL >= 0)) && printf '%s\n' "$msg" | tee -a "$LOGFILE"; done; }
 
-elif [[ "$LogType" = 'filestderr' ]] ; then
+elif [[ "$LOGTYPE" = 'filestderr' ]] ; then
   #Functions defining the different logging messages, sent to logfile & stderr.
   #sleep is a hack to avoid wrong order in file when *Cont is used, and apparently processes faster leading to out of order file content.
-  Debug(){  ((LogLevel >= 3)) && printf "$DEBUG_CLR %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LogFile") 1>&2 ; sleep 0.002; }
-  Inform(){ ((LogLevel >= 2)) && printf "$INFO_CLR %s\n"  "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LogFile") 1>&2 ; sleep 0.002; }
-  Warn(){   ((LogLevel >= 1)) && printf "$WARN_CLR %s\n"  "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LogFile") 1>&2 ; sleep 0.002; }
-  Err(){    ((LogLevel >= 0)) && printf "$ERROR_CLR %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LogFile") 1>&2 ; sleep 0.002; }
-  #Func: #If LogLevel appropriate #Prepend msg with Type #Pipe to stderr & process substitution: prepend Date&Time, strip colour tags #Redirect to file #Wait so order preserved
+  debug(){  ((LOGLEVEL >= 3)) && printf "$DEBUG_CLR %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LOGFILE") 1>&2 ; sleep 0.002; }
+  inform(){ ((LOGLEVEL >= 2)) && printf "$INFO_CLR %s\n"  "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LOGFILE") 1>&2 ; sleep 0.002; }
+  warn(){   ((LOGLEVEL >= 1)) && printf "$WARN_CLR %s\n"  "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LOGFILE") 1>&2 ; sleep 0.002; }
+  err(){    ((LOGLEVEL >= 0)) && printf "$ERROR_CLR %s\n" "$1" | tee >(xargs --null printf "[$(date +%FT%T)] %s" | sed -r "$STRIP_CLR" >> "$LOGFILE") 1>&2 ; sleep 0.002; }
+  #Func: #If LOGLEVEL appropriate #Prepend msg with Type #Pipe to stderr & process substitution: prepend Date&Time, strip colour tags #Redirect to file #Wait so order preserved
 
   #Use for multiple lines of a single message, sent to logfile & stderr
-  DebugCont(){  ((LogLevel >= 3)) && printf '%0.7s%s\n' "$pad" "$1" | tee -a "$LogFile" 1>&2 ; }
-  InformCont(){ ((LogLevel >= 2)) && printf '%0.6s%s\n' "$pad" "$1" | tee -a "$LogFile" 1>&2 ; }
-  WarnCont(){   ((LogLevel >= 1)) && printf '%0.9s%s\n' "$pad" "$1" | tee -a "$LogFile" 1>&2 ; }
-  ErrCont(){    ((LogLevel >= 0)) && printf '%0.7s%s\n' "$pad" "$1" | tee -a "$LogFile" 1>&2 ; }
+  debugcont(){  ((LOGLEVEL >= 3)) && printf '%0.7s%s\n' "$pad" "$1" | tee -a "$LOGFILE" 1>&2 ; }
+  informcont(){ ((LOGLEVEL >= 2)) && printf '%0.6s%s\n' "$pad" "$1" | tee -a "$LOGFILE" 1>&2 ; }
+  warncont(){   ((LOGLEVEL >= 1)) && printf '%0.9s%s\n' "$pad" "$1" | tee -a "$LOGFILE" 1>&2 ; }
+  errcont(){    ((LOGLEVEL >= 0)) && printf '%0.7s%s\n' "$pad" "$1" | tee -a "$LOGFILE" 1>&2 ; }
 
   #Use to pipe output from another command to logs, eg: command 2>&1 | err_pipe "command: "
-  err_pipe(){ while IFS='' read -r msg; do msg="$1$msg"; ((LogLevel >= 0)) && printf '%s\n' "$msg" | tee -a "$LogFile" 1>&2 ; done; }
+  err_pipe(){ while IFS='' read -r msg; do msg="$1$msg"; ((LOGLEVEL >= 0)) && printf '%s\n' "$msg" | tee -a "$LOGFILE" 1>&2 ; done; }
 
-elif [[ "$LogType" = 'stdout' ]] ; then
+elif [[ "$LOGTYPE" = 'stdout' ]] ; then
   #Functions defining the different logging messages, no-logfile==only-stdout
-  Debug(){  ((LogLevel >= 3)) && printf "$DEBUG_CLR %s\n" "$1" ; }
-  Inform(){ ((LogLevel >= 2)) && printf "$INFO_CLR %s\n"  "$1" ; }
-  Warn(){   ((LogLevel >= 1)) && printf "$WARN_CLR %s\n"  "$1" ; }
-  Err(){    ((LogLevel >= 0)) && printf "$ERROR_CLR %s\n" "$1" ; }
+  debug(){  ((LOGLEVEL >= 3)) && printf "$DEBUG_CLR %s\n" "$1" ; }
+  inform(){ ((LOGLEVEL >= 2)) && printf "$INFO_CLR %s\n"  "$1" ; }
+  warn(){   ((LOGLEVEL >= 1)) && printf "$WARN_CLR %s\n"  "$1" ; }
+  err(){    ((LOGLEVEL >= 0)) && printf "$ERROR_CLR %s\n" "$1" ; }
 
   #Use for multiple lines of a single message, no-logfile==only-stdout
-  DebugCont(){  ((LogLevel >= 3)) && printf '%0.7s%s\n' "$pad" "$1" ; }
-  InformCont(){ ((LogLevel >= 2)) && printf '%0.6s%s\n' "$pad" "$1" ; }
-  WarnCont(){   ((LogLevel >= 1)) && printf '%0.9s%s\n' "$pad" "$1" ; }
-  ErrCont(){    ((LogLevel >= 0)) && printf '%0.7s%s\n' "$pad" "$1" ; }
+  debugcont(){  ((LOGLEVEL >= 3)) && printf '%0.7s%s\n' "$pad" "$1" ; }
+  informcont(){ ((LOGLEVEL >= 2)) && printf '%0.6s%s\n' "$pad" "$1" ; }
+  warncont(){   ((LOGLEVEL >= 1)) && printf '%0.9s%s\n' "$pad" "$1" ; }
+  errcont(){    ((LOGLEVEL >= 0)) && printf '%0.7s%s\n' "$pad" "$1" ; }
 
   #Use to pipe output from another command to logs, eg: command 2>&1 | err_pipe "command: "
-  err_pipe(){ while IFS='' read -r msg; do msg="$1$msg"; ((LogLevel >= 0)) && printf '%s\n' "$msg" ; done; }
+  err_pipe(){ while IFS='' read -r msg; do msg="$1$msg"; ((LOGLEVEL >= 0)) && printf '%s\n' "$msg" ; done; }
 
-elif [[ "$LogType" = 'stderr' ]] ; then
+elif [[ "$LOGTYPE" = 'stderr' ]] ; then
   #Functions defining the different logging messages, no-logfile==only-stderr
-  Debug(){  ((LogLevel >= 3)) && printf "$DEBUG_CLR %s\n" "$1" 1>&2 ; }
-  Inform(){ ((LogLevel >= 2)) && printf "$INFO_CLR %s\n"  "$1" 1>&2 ; }
-  Warn(){   ((LogLevel >= 1)) && printf "$WARN_CLR %s\n"  "$1" 1>&2 ; }
-  Err(){    ((LogLevel >= 0)) && printf "$ERROR_CLR %s\n" "$1" 1>&2 ; }
+  debug(){  ((LOGLEVEL >= 3)) && printf "$DEBUG_CLR %s\n" "$1" 1>&2 ; }
+  inform(){ ((LOGLEVEL >= 2)) && printf "$INFO_CLR %s\n"  "$1" 1>&2 ; }
+  warn(){   ((LOGLEVEL >= 1)) && printf "$WARN_CLR %s\n"  "$1" 1>&2 ; }
+  err(){    ((LOGLEVEL >= 0)) && printf "$ERROR_CLR %s\n" "$1" 1>&2 ; }
 
   #Use for multiple lines of a single message, no-logfile==only-stderr
-  DebugCont(){  ((LogLevel >= 3)) && printf '%0.7s%s\n' "$pad" "$1" 1>&2 ; }
-  InformCont(){ ((LogLevel >= 2)) && printf '%0.6s%s\n' "$pad" "$1" 1>&2 ; }
-  WarnCont(){   ((LogLevel >= 1)) && printf '%0.9s%s\n' "$pad" "$1" 1>&2 ; }
-  ErrCont(){    ((LogLevel >= 0)) && printf '%0.7s%s\n' "$pad" "$1" 1>&2 ; }
+  debugcont(){  ((LOGLEVEL >= 3)) && printf '%0.7s%s\n' "$pad" "$1" 1>&2 ; }
+  informcont(){ ((LOGLEVEL >= 2)) && printf '%0.6s%s\n' "$pad" "$1" 1>&2 ; }
+  warncont(){   ((LOGLEVEL >= 1)) && printf '%0.9s%s\n' "$pad" "$1" 1>&2 ; }
+  errcont(){    ((LOGLEVEL >= 0)) && printf '%0.7s%s\n' "$pad" "$1" 1>&2 ; }
 
   #Use to pipe output from another command to logs, eg: command 2>&1 | err_pipe "command: "
-  err_pipe(){ while IFS='' read -r msg; do msg="$1$msg"; ((LogLevel >= 0)) && printf '%s\n' "$msg" 1>&2 ; done; }
+  err_pipe(){ while IFS='' read -r msg; do msg="$1$msg"; ((LOGLEVEL >= 0)) && printf '%s\n' "$msg" 1>&2 ; done; }
 
-elif [[ "$LogType" = @(logfile|file) ]] ; then
+elif [[ "$LOGTYPE" = @(logfile|file) ]] ; then
   #Functions defining the different logging messages, no-stdout|stderr==only-logfile
-  Debug(){  ((LogLevel >= 3)) && printf "[$(date +%FT%T)] DEBUG: %s\n"   "$1" >> "$LogFile"; }
-  Inform(){ ((LogLevel >= 2)) && printf "[$(date +%FT%T)] INFO: %s\n"    "$1" >> "$LogFile"; }
-  Warn(){   ((LogLevel >= 1)) && printf "[$(date +%FT%T)] WARNING: %s\n" "$1" >> "$LogFile"; }
-  Err(){    ((LogLevel >= 0)) && printf "[$(date +%FT%T)] ERROR: %s\n"   "$1" >> "$LogFile"; }
+  debug(){  ((LOGLEVEL >= 3)) && printf "[$(date +%FT%T)] DEBUG: %s\n"   "$1" >> "$LOGFILE"; }
+  inform(){ ((LOGLEVEL >= 2)) && printf "[$(date +%FT%T)] INFO: %s\n"    "$1" >> "$LOGFILE"; }
+  warn(){   ((LOGLEVEL >= 1)) && printf "[$(date +%FT%T)] WARNING: %s\n" "$1" >> "$LOGFILE"; }
+  err(){    ((LOGLEVEL >= 0)) && printf "[$(date +%FT%T)] ERROR: %s\n"   "$1" >> "$LOGFILE"; }
 
   #Use for multiple lines of a single message, no-stdout==only-logfile
-  DebugCont(){  ((LogLevel >= 3)) && printf '%0.7s%s\n' "$pad" "$1" >> "$LogFile"; }
-  InformCont(){ ((LogLevel >= 2)) && printf '%0.6s%s\n' "$pad" "$1" >> "$LogFile"; }
-  WarnCont(){   ((LogLevel >= 1)) && printf '%0.9s%s\n' "$pad" "$1" >> "$LogFile"; }
-  ErrCont(){    ((LogLevel >= 0)) && printf '%0.7s%s\n' "$pad" "$1" >> "$LogFile"; }
+  debugcont(){  ((LOGLEVEL >= 3)) && printf '%0.7s%s\n' "$pad" "$1" >> "$LOGFILE"; }
+  informcont(){ ((LOGLEVEL >= 2)) && printf '%0.6s%s\n' "$pad" "$1" >> "$LOGFILE"; }
+  warncont(){   ((LOGLEVEL >= 1)) && printf '%0.9s%s\n' "$pad" "$1" >> "$LOGFILE"; }
+  errcont(){    ((LOGLEVEL >= 0)) && printf '%0.7s%s\n' "$pad" "$1" >> "$LOGFILE"; }
 
   #Use to pipe output from another command to logs, eg: command 2>&1 | err_pipe "command: "
-  err_pipe(){ while IFS='' read -r msg; do msg="$1$msg"; ((LogLevel >= 0)) && printf '%s\n' "$msg" >> "$LogFile"; done; }
+  err_pipe(){ while IFS='' read -r msg; do msg="$1$msg"; ((LOGLEVEL >= 0)) && printf '%s\n' "$msg" >> "$LOGFILE"; done; }
 
 else
-  printf "$ERROR_CLR %s\n" 'The LogType option, if provided, must be one of: "file"; "stdout"; "stderr"; "filestdout"; "filestderr".'
+  printf "$ERROR_CLR %s\n" 'The LOGTYPE option, if provided, must be one of: "file"; "stdout"; "stderr"; "filestdout"; "filestderr".'
   return 1
 fi
 
 # #TODO: Check this actually works... seems like a good idea...
 #set_trace 'Detailed' "$m2kdir/${FileNameNow}_debug_trace.log"
 #Set debug trace, output to its own file via file-descriptor 5
+#TODO: Should be able to have bash provide an available filedescriptor rather than setting explicit 5...
 set_trace(){
   #Take prepend setting from command, default to "Simple".
   if [[ -n "$1" ]]; then pre="$1"; else pre='Simple'; fi
@@ -238,12 +237,12 @@ unset_trace(){
 
 
 # #Make the functions defined here readonly to prevent clobbering by calling script.
-# readonly -f Debug
-# readonly -f Inform
-# readonly -f Warn
-# readonly -f Err
-# readonly -f DebugCont
-# readonly -f InformCont
-# readonly -f WarnCont
-# readonly -f ErrCont
+# readonly -f debug
+# readonly -f inform
+# readonly -f warn
+# readonly -f err
+# readonly -f debugcont
+# readonly -f informcont
+# readonly -f warncont
+# readonly -f errcont
 return 0
