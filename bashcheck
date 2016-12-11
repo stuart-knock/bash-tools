@@ -21,6 +21,7 @@
 #
 
 #TODO: Cleanup output formatting.
+#TODO: Consider using bashlogging
 
 ###############################################################################
 ########################## Configurable variables #############################
