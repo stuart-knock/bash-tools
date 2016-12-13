@@ -11,11 +11,11 @@ they do use coloured versions of the ERROR:, WARNING:, INFO:, and DEBUG: tags.
 
 ### bashcheck
 Does a quick and dirty check of a bash script printing any potentially major
-problems to stdout, specifically it checks for:  
-  +Assigning values to system variables in an unconstrained way, ie a way
-   that will have side effects on the callers environment.
-  +Assigning variables or defining functions using Built-in function names
-   or keywords.
+problems to stdout, specifically it checks for:
+  + Assigning values to system variables in an unconstrained way, ie a way
+    that will have side effects on the callers environment.
+  + Assigning variables or defining functions using Built-in function names
+    or keywords.
 
 ### checkurl
 Check if a web page is accessible. Useful as a utility function for
