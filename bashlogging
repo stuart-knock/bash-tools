@@ -61,7 +61,7 @@
 #DESCRIPTION:
 # Defines several functions for fine grained control of logging information.
 # Writes different types of messages based on LOGLEVEL. The messages are
-# sent to either stdout, stderr, file, or both based on the LOGTYPE argument.
+# sent to either stdout, stderr, file, or both based on the LOGTYPE parameter.
 # The file output is prepended with date & time -- stdout/stderr aren't.
 #
 # Author: Stuart A. Knock
