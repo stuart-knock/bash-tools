@@ -66,6 +66,7 @@
 #
 # Author: Stuart A. Knock
 # Originally Written: 2015-11-27
+# https://github.com/stuart-knock/bash-tools
 #
 
 #TODO: Consider adding an AutoElevate ['Enabled'|'Disabled'] option, which automatically raises 
