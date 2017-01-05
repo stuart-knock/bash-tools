@@ -16,6 +16,7 @@
 #
 # Author: Stuart A. Knock
 # Originally Written: 2015-11-28
+# https://github.com/stuart-knock/bash-tools
 #
 
 #TODO: make it capable of handling multiple urls in an efficient way.

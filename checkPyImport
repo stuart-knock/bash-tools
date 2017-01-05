@@ -24,6 +24,7 @@
 #
 # Author: Stuart A. Knock
 # Originally Written: 2015-11-25
+# https://github.com/stuart-knock/bash-tools
 #
 
 #TODO: Add some extra checks and messages, maybe add a verbosity flag...
