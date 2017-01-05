@@ -4,7 +4,7 @@
 #  #Source the file to get access to all the variable and function definitions.
 #
 #  #If you want a non-default LOGTYPE it must be specified before "source"ing.
-#  #Options: ['stdout'|'stderr'|'file'|'stdoutfile'(default)|'stderrfile']
+#  #Options: ['stdout'|'stderr'|'file'|'stdoutfile'|'stderrfile'(default)]
 #  LOGTYPE='stderr'
 #  source bashlogging
 #  #LOGTYPE determines where to direct logging messages. Once you've "source"d
@@ -37,6 +37,9 @@
 #    errcont "The value of x was $y and j was $z, try passing q to ${FUNCNAME}()"
 #    errcont "You may also need to 'chmod a+rwx yourfile.txt' and do a rain dance."
 #  }
+#
+#  #For an example of a large bash script that makes heavy use of bashlogging, see:
+#  #    https://github.com/stuart-knock/myth2kodi/blob/master/myth2kodi
 #
 #REQUIRES:
 #  tee -- reads from standard input then writes to standard output & files.
@@ -91,10 +94,11 @@ if [[ -z "$LOGLEVEL" ]]; then declare -gi LOGLEVEL=2; else declare -gi LOGLEVEL;
 [[ -z "$LOGFILE" ]] && LOGFILE='default_bashlogging.log'
 
 #Default type of logging to do, or more specifically the type of destination
-#for logging messages. Options are ['logfile'|'stdout'|'both'(default)], the
-#default set here can only be overridden before source[ing] bashlogging, and
+#for logging messages.
+#Options: ['file'|'stdout'|'stderr'|'filestdout'|'filestderr'(default)]
+#The default set here can only be overridden before source[ing] bashlogging, and
 #not after sourcing, as can be done with LOGLEVEL and LOGFILE.
-if [[ -z "$LOGTYPE" ]]; then declare -gr LOGTYPE='both'; else declare -gr LOGTYPE; fi
+if [[ -z "$LOGTYPE" ]]; then declare -gr LOGTYPE='filestderr'; else declare -gr LOGTYPE; fi
 
 #^^^^----------- DEFAULT USER SETTINGS ABOVE THIS LINE ------------------^^^^#
 
@@ -107,7 +111,7 @@ declare -gr STRIP_CLR='s/\x1B\[([0-1];)?[0-4]{1,2}m//g' #A regex to strip colour
 
 #Return an error message if LOGTYPE isn't set correctly.
 if [[ ! "$LOGTYPE" =~ ^(logfile|file|stdout|stderr|both|filestdout|filestderr)$ ]]; then
-  printf "$ERROR_CLR %s\n" "For ${BASH_SOURCE[0]} LOGTYPE must be 'logfile'|'stdout'|'both'."
+  printf "$ERROR_CLR %s\n" "For ${BASH_SOURCE[0]} LOGTYPE must be ['file'|'stdout'|'stderr'|'filestdout'|'filestderr'(default)]."
   return 1
 fi
 
