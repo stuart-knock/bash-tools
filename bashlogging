@@ -205,21 +205,26 @@ else
 fi
 
 # #TODO: Check this actually works... seems like a good idea...
-#set_trace 'Detailed' "$m2kdir/${FileNameNow}_debug_trace.log"
-#Set debug trace, output to its own file via file-descriptor 5
-#TODO: Should be able to have bash provide an available filedescriptor rather than setting explicit 5...
+#USAGE:
+#  set_trace 'Detailed' "$m2kdir/${FileNameNow}_debug_trace.log"
+#Set debug trace, output to its own file via file-descriptor trace_fd,
+#which should be assigned the lowest value of an available fd > 10.
 set_trace(){
+  local pre
+  local file_name
+  local trace_fd
+
   #Take prepend setting from command, default to "Simple".
   if [[ -n "$1" ]]; then pre="$1"; else pre='Simple'; fi
 
   #Send trace output to file
   if [[ -n "$2" ]]; then
-    local FileName="$2"
+    file_name="$2"
   else
-    local FileName="$(date +%FT%H%M%S)_debug_trace.log"
+    file_name="$(date +%FT%H%M%S)_debug_trace.log"
   fi
-  exec 5> "$FileName"
-  BASH_XTRACEFD="5"
+  exec {trace_fd}>"$file_name"
+  BASH_XTRACEFD="$trace_fd"
 
   #Prepend output with a "Simple" OR "Detailed"
   if [[ "$pre" = "Simple" ]]; then
@@ -232,10 +237,10 @@ set_trace(){
   set -x
 }
 
-#Unset the debug trace, closing file-descriptor 5
+#Unset the debug trace, closing file-descriptor trace_fd.
 unset_trace(){
- #Close fd # 5
- #exec 5<&-
+ #Close trace_fd
+ #exec {trace_fd}<&-
  unset BASH_XTRACEFD #unsetting BASH_XTRACEFD has the side effect of closing the file-descriptor it had been pointed to...
 }
 
