@@ -32,6 +32,8 @@
 #    command1 2>&1 | err_pipe "command1: "
 #    #If using one of the stderr or file-only LOGTYPEs, you can message mid pipe
 #    command1 | tee >(debug "Stuff is happening") | command2
+#    #Or grab errors from commands used to set varibles
+#    VARIABLE="$(cmd_sets_var_value 2> >(err_pipe "ASSIGN VARIABLE: "))"
 #    warn 'The ducks weren't all in a row, but we'll forge on.'
 #    err 'It all went horribly wrong, no value will be returned.'
 #    errcont "The value of x was $y and j was $z, try passing q to ${FUNCNAME}()"
