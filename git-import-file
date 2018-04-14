@@ -3,9 +3,15 @@
 # git-import-file
 #
 #USAGE: git-import-file 'source-file' ['target-file']
+#    If the optional 'target-file' parameter is omitted, the file is copied
+#    to the same name as the source-file but in the current directory, ie.,
+#    it is copied to: ./"$(basename 'source-file')"
 #
 #REQUIRES:
-#  non-standard-things-or-versions-we-require
+#  git -- hopefully, obviously.
+#  csplit -- used to split the commits that make up the files history into,
+#            temporary, files containing individual commits, so that we can
+#            process and apply them to produce the 'target-file'.
 #
 #DESCRIPTION:
 #  Imports a single file from a source repository into a target repository,
@@ -14,7 +20,7 @@
 #  Conditions:
 #    + target repository in clean state
 #    + The target file MUST NOT exist.
-#    + The commit history must be "fairly-standard"
+#    + The commit history of the 'source-file' must be "fairly-standard":
 #      + Any rename must have been done atomically, that is, the commit
 #        performing the rename must not have modified the file contents.
 #      + ...
@@ -25,17 +31,17 @@
 #
 # Author: Stuart Knock (2018-04-08)
 #
-#Disable the shellcheck info message about variables in printf format string.
-#Prior to any other commands, like it is here, it applies to the whole file.
+# Disable the shellcheck info message about variables in printf format string.
+# Prior to any other commands, like it is here, it applies to the whole file.
 # shellcheck disable=SC2059
 
-#Use the header as a basic help message.
+# Use the header as a basic help message.
 [[ "$1" =~ ^('-h'|'--help')$ ]] && { head -n $((LINENO-6)) "${BASH_SOURCE[0]}"; exit 1; }
 
-#Set some variables for message formatting
+# Set some variables for message formatting
 declare -r ERROR='\e[1;31mERROR:\e[0m %s\n' # Bold Red error message format.
 
-#Capture the directory we start in, we'll do some cd below.
+# Capture the directory we start in, we'll do some cd below.
 ORIGINAL_DIR="$(pwd -P)" || exit 1
 declare -r ORIGINAL_DIR
 
@@ -44,7 +50,7 @@ declare -r ORIGINAL_DIR
 ########################### Function Definitions ###########################
 ############################################################################
 
-#Make sure the repo is in a clean state
+# Make sure the repo is in a clean state
 good_repo_status(){
   local repo_status
   if ! repo_status="$(git status --untracked-files=no --porcelain)"; then
@@ -64,32 +70,39 @@ clean_exit(){
   if [[ "$1" == 0 ]]; then
     [[ -d "${WORKING_DIR}" ]] && rm -rf "${WORKING_DIR}"
   fi
-  #Change back to the starting directory.
+  # Change back to the starting directory.
   cd "$ORIGINAL_DIR" || exit 1
   exit "$1"
 } #clean_exit()
 
 capture_args(){
-  #Check the source-file exists.
+  # Check the source-file exists.
   declare -gr SOURCE="$1"
-  [[ -f "$SOURCE" ]] || { printf "$ERROR" "The source-file does not exist: '$SOURCE'."; return 1; }
+  if [[ ! -f "$SOURCE" ]]; then
+    printf "$ERROR" "The source-file does not exist: '$SOURCE'."
+    return 1
+  fi
   SOURCE_DIR="$( cd "$(dirname "${SOURCE}")" || return 1 ; pwd -P )"
   declare -gr SOURCE_DIR
   SOURCE_BASENAME="$(basename "$SOURCE")"
   declare -gr SOURCE_BASENAME
 
-  #Check that the target-file DOES NOT already exist.
+  # Set the target-file.
   if [[ -n "$2" ]]; then
     declare -gr TARGET="$2"
   else
-    #Default to source-file name in current directory.
+    # Default to source-file name in current directory.
     declare -gr TARGET="$ORIGINAL_DIR/$SOURCE_BASENAME"
   fi
-  [[ -f "$TARGET" ]] && { printf "$ERROR" "The target-file must not exist: '$TARGET'."; return 1; }
+  # Check that the target-file DOES NOT already exist.
+  if [[ -f "$TARGET" ]]; then
+    printf "$ERROR" "The target-file must not exist: '$TARGET'."
+    return 1
+  fi
   TARGET_DIR="$( cd "$(dirname "${TARGET}")" || return 1 ; pwd -P )"
   declare -gr TARGET_DIR
-  TARGET_BASENAME="$(basename "$TARGET")"
-  declare -gr TARGET_BASENAME
+  # TARGET_BASENAME="$(basename "$TARGET")"
+  # declare -gr TARGET_BASENAME
 
   return 0
 } #capture_args()
@@ -126,7 +139,7 @@ exclude_renames(){
 }
 
 get_file_patch_set(){
-  #Create a temporary directory to hold our working files.
+  # Create a temporary directory to hold our working files.
   local name_template="/tmp/git-import-file-${SOURCE_BASENAME%.*}"
   if ! WORKING_DIR="$(mktemp --directory "${name_template}-XXXX")"; then
     return 1
@@ -170,27 +183,25 @@ get_file_patch_set(){
 ############################### Main Script ################################
 ############################################################################
 
-#Check we were provided at least one argument.
+# Check we were provided at least one argument.
 (( $# >= 1 )) || { printf "$ERROR" "'${BASH_SOURCE[0]}' requires an argument."; exit 1; }
 
-#Capture and do basic checks on arguments.
+# Capture and do basic checks on arguments.
 if ! capture_args "$1" "$2"; then exit 1; fi
 
-#Change into the source-file directory
+# Change into the source-file directory
 cd "$SOURCE_DIR" || exit 1
 
-#Check that the source git repo is in a clean state
+# Check that the source git repo is in a clean state
 if ! good_repo_status; then clean_exit 1; fi
 
-#Try to get a complete patch-set necessary to re-create the file, with history.
+# Try to get a complete patch-set necessary to re-create the file, with history.
 if ! get_file_patch_set; then clean_exit 1; fi
-
-#TODO: optional interactive or preview before applying
 
 # Change into the target directory
 cd "$TARGET_DIR" || clean_exit 1
 
-#Check that the target git repo is in a clean state
+# Check that the target git repo is in a clean state
 if ! good_repo_status; then clean_exit 1; fi
 
 # Create file in target repository by applying ordered-patch-set
@@ -208,7 +219,7 @@ if git apply --check -- "$ORDERED_PATCH_SET"; then
   # if (( copy_status == 1 )); then
   #   printf "$ERROR" 'The generated target-file differs from the source-file.'
   #   clean_exit 1
-  # else
+  # elif (( copy_status == 2 )); then
   #   printf "$ERROR" 'Something unexpected went wrong...'
   #   clean_exit 1
   # fi
