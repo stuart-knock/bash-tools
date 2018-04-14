@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+
+# git-import-file
+#
+#USAGE: git-import-file 'source-file' ['target-file']
+#
+#REQUIRES:
+#  non-standard-things-or-versions-we-require
+#
+#DESCRIPTION:
+#  Imports a single file from a source repository into a target repository,
+#  including its complete commit history.
+#
+#  Conditions:
+#    + target repository in clean state
+#    + The target file MUST NOT exist.
+#    + The commit history must be "fairly-standard"
+#      + Any rename must have been done atomically, that is, the commit
+#        performing the rename must not have modified the file contents.
+#      + ...
+# Recommendation:
+#    + Make sure everything is backed up in case things go sideways... 
+#    + Switch target repo into a fresh branch before running this
+#    + 
+#
+# Author: Stuart Knock (2018-04-08)
+#
+#Disable the shellcheck info message about variables in printf format string.
+#Prior to any other commands, like it is here, it applies to the whole file.
+# shellcheck disable=SC2059
+
+#Use the header as a basic help message.
+[[ "$1" =~ ^('-h'|'--help')$ ]] && { head -n $((LINENO-6)) "${BASH_SOURCE[0]}"; exit 1; }
+
+#Set some variables for message formatting
+declare -r ERROR='\e[1;31mERROR:\e[0m %s\n' # Bold Red error message format.
+
+#Capture the directory we start in, we'll do some cd below.
+ORIGINAL_DIR="$(pwd -P)" || exit 1
+declare -r ORIGINAL_DIR
+
+
+############################################################################
+########################### Function Definitions ###########################
+############################################################################
+
+#Make sure the repo is in a clean state
+good_repo_status(){
+  local repo_status
+  if ! repo_status="$(git status --untracked-files=no --porcelain)"; then
+    printf "$ERROR" "Could not determine status of the git repo for '$( pwd -P )'."
+    return 1
+  fi
+  if [[ -n "$repo_status" ]]; then
+    printf "$ERROR" "The git repo containing '$( pwd -P )' has uncommitted changes."
+    printf '    %s\n' 'Commit, stash or revert changes before trying again.'
+    return 1
+  fi
+  return 0
+} #good_repo_status()
+
+clean_exit(){
+  # Clean-up temporary files on successful completion
+  if [[ "$1" == 0 ]]; then
+    [[ -d "${WORKING_DIR}" ]] && rm -rf "${WORKING_DIR}"
+  fi
+  #Change back to the starting directory.
+  cd "$ORIGINAL_DIR" || exit 1
+  exit "$1"
+} #clean_exit()
+
+capture_args(){
+  #Check the source-file exists.
+  declare -gr SOURCE="$1"
+  [[ -f "$SOURCE" ]] || { printf "$ERROR" "The source-file does not exist: '$SOURCE'."; return 1; }
+  SOURCE_DIR="$( cd "$(dirname "${SOURCE}")" || return 1 ; pwd -P )"
+  declare -gr SOURCE_DIR
+  SOURCE_BASENAME="$(basename "$SOURCE")"
+  declare -gr SOURCE_BASENAME
+
+  #Check that the target-file DOES NOT already exist.
+  if [[ -n "$2" ]]; then
+    declare -gr TARGET="$2"
+  else
+    #Default to source-file name in current directory.
+    declare -gr TARGET="$ORIGINAL_DIR/$SOURCE_BASENAME"
+  fi
+  [[ -f "$TARGET" ]] && { printf "$ERROR" "The target-file must not exist: '$TARGET'."; return 1; }
+  TARGET_DIR="$( cd "$(dirname "${TARGET}")" || return 1 ; pwd -P )"
+  declare -gr TARGET_DIR
+  TARGET_BASENAME="$(basename "$TARGET")"
+  declare -gr TARGET_BASENAME
+
+  return 0
+} #capture_args()
+
+# Confirm the patch set includes the original commit (first commit has
+# previous sha1 as all zeros and previous file-path as /dev/null).
+have_initial_commit(){
+  #NOTE: two checks is just to give us more confidence that we've actually
+  #      found a match.
+  local initial_commit
+  local xx_list
+  initial_commit="$(comm -12 <(grep -E --files-with-matches '0{40}' "${WORKING_DIR}/"xx*) \
+                             <(grep --files-with-match  '/dev/null' "${WORKING_DIR}/"xx*))"
+  xx_list=( $(sort --reverse <<< "$(printf '%s\n' "${WORKING_DIR}/"xx*)") )
+  if [[ "$initial_commit" != "${xx_list[0]}" ]]; then
+    printf "$ERROR" 'We could not track history back to the initial commit.'
+    return 1
+  fi
+  return 0
+}
+
+# Exclude patches that are renames
+exclude_renames(){
+  #TODO: Check if we need to substitute file-names here... and if we do does that work???
+  grep --files-with-matches '^rename from ' "${WORKING_DIR}/"xx* \
+      > "${WORKING_DIR}/rename_patches.list"
+
+  if [[ -s "${WORKING_DIR}/rename_patches.list" ]]; then
+    while read -r rename_file; do
+      rm -f "$rename_file"
+    done < "${WORKING_DIR}/rename_patches.list"
+  fi
+  return 0
+}
+
+get_file_patch_set(){
+  #Create a temporary directory to hold our working files.
+  local name_template="/tmp/git-import-file-${SOURCE_BASENAME%.*}"
+  if ! WORKING_DIR="$(mktemp --directory "${name_template}-XXXX")"; then
+    return 1
+  fi
+
+  # Generate a full set of patches for the source-file.
+  ALL_PATCHES="${WORKING_DIR}/all_patches.txt"
+  git log               \
+      --follow          \
+      --pretty=email    \
+      --patch-with-stat \
+      --full-index      \
+      --binary          \
+      -- "$SOURCE" > "$ALL_PATCHES"
+
+  # Split all-patches file into multiple temporary files, each containing a
+  # single commit (identified based on sha1). 
+  csplit --silent                     \
+         --elide-empty-files          \
+         --prefix="${WORKING_DIR}/xx" \
+         --suffix-format='%04d'       \
+         "$ALL_PATCHES" '/^From [0-9a-f]\{40\}/' '{*}'
+
+  # Exclude commits that are renames/moves -- do not implicitly modify TARGET.
+  exclude_renames
+
+  if ! have_initial_commit; then return 1; fi
+
+  #NOTE: reverse order here rather than using '--reverse' flag to git log as
+  #      the git log flag prevents '--follow' from working.
+  # Concatenate the patches in reverse order
+  ORDERED_PATCH_SET="${WORKING_DIR}/patches_to_use.txt"
+  #shellcheck disable=SC2046
+  cat $(sort --reverse <<< "$(printf '%s\n' "${WORKING_DIR}/"xx*)") \
+      > "$ORDERED_PATCH_SET" #NOTE: DO NOT quote expansion of arg to cat.
+
+  return 0
+} #get_file_patch_set()
+
+############################################################################
+############################### Main Script ################################
+############################################################################
+
+#Check we were provided at least one argument.
+(( $# >= 1 )) || { printf "$ERROR" "'${BASH_SOURCE[0]}' requires an argument."; exit 1; }
+
+#Capture and do basic checks on arguments.
+if ! capture_args "$1" "$2"; then exit 1; fi
+
+#Change into the source-file directory
+cd "$SOURCE_DIR" || exit 1
+
+#Check that the source git repo is in a clean state
+if ! good_repo_status; then clean_exit 1; fi
+
+#Try to get a complete patch-set necessary to re-create the file, with history.
+if ! get_file_patch_set; then clean_exit 1; fi
+
+#TODO: optional interactive or preview before applying
+
+# Change into the target directory
+cd "$TARGET_DIR" || clean_exit 1
+
+#Check that the target git repo is in a clean state
+if ! good_repo_status; then clean_exit 1; fi
+
+# Create file in target repository by applying ordered-patch-set
+if git apply --check -- "$ORDERED_PATCH_SET"; then
+  #TODO: consider: git am --reject --whitespace=fix < "$ORDERED_PATCH_SET"
+  #      probably need to check, and don't apply --whitespace=fix, if MarkDown...
+  #NOTE: using am in order to preserve commit messages
+  if ! git am < "$ORDERED_PATCH_SET"; then
+    git am --abort
+    printf "$ERROR" "Failed to apply generated patch-set."
+    clean_exit 1
+  fi
+  # diff -q "$SOURCE" "$TARGET_BASENAME" &> /dev/null  #--ignore-trailing-space
+  # copy_status="$?" #NOTE: No-diff = 0; diff = 1; error = 2
+  # if (( copy_status == 1 )); then
+  #   printf "$ERROR" 'The generated target-file differs from the source-file.'
+  #   clean_exit 1
+  # else
+  #   printf "$ERROR" 'Something unexpected went wrong...'
+  #   clean_exit 1
+  # fi
+else
+  printf "$ERROR" "Failed to generate a complete history to apply to the target-file."
+  clean_exit 1
+fi
+
+clean_exit 0
