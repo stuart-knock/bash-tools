@@ -24,7 +24,7 @@
 #      + Any rename must have been done atomically, that is, the commit
 #        performing the rename must not have modified the file contents.
 #      + ...
-# Recommendation:
+#  Recommendations:
 #    + Make sure everything is backed up in case things go sideways... 
 #    + Switch target repo into a fresh branch before running this
 #    + 
@@ -110,14 +110,13 @@ capture_args(){
 # Confirm the patch set includes the original commit (first commit has
 # previous sha1 as all zeros and previous file-path as /dev/null).
 have_initial_commit(){
+  local initial_commit
   #NOTE: two checks is just to give us more confidence that we've actually
   #      found a match.
-  local initial_commit
-  local xx_list
   initial_commit="$(comm -12 <(grep -E --files-with-matches '0{40}' "${WORKING_DIR}/"xx*) \
                              <(grep --files-with-match  '/dev/null' "${WORKING_DIR}/"xx*))"
-  xx_list=( $(sort --reverse <<< "$(printf '%s\n' "${WORKING_DIR}/"xx*)") )
-  if [[ "$initial_commit" != "${xx_list[0]}" ]]; then
+
+  if [[ "$initial_commit" != "${ORDERED_PATCH_SET[0]}" ]]; then
     printf "$ERROR" 'We could not track history back to the initial commit.'
     return 1
   fi
@@ -166,15 +165,16 @@ get_file_patch_set(){
   # Exclude commits that are renames/moves -- do not implicitly modify TARGET.
   exclude_renames
 
-  if ! have_initial_commit; then return 1; fi
-
   #NOTE: reverse order here rather than using '--reverse' flag to git log as
   #      the git log flag prevents '--follow' from working.
+  ORDERED_PATCH_SET=($(sort --reverse <<< "$(printf '%s\n' "${WORKING_DIR}/"xx*)"))
+  declare -gr ORDERED_PATCH_SET
+
+  if ! have_initial_commit; then return 1; fi
+
   # Concatenate the patches in reverse order
-  ORDERED_PATCH_SET="${WORKING_DIR}/patches_to_use.txt"
-  #shellcheck disable=SC2046
-  cat $(sort --reverse <<< "$(printf '%s\n' "${WORKING_DIR}/"xx*)") \
-      > "$ORDERED_PATCH_SET" #NOTE: DO NOT quote expansion of arg to cat.
+  PATCHES_TO_USE="${WORKING_DIR}/patches_to_use.txt"
+  cat "${ORDERED_PATCH_SET[@]}" > "$PATCHES_TO_USE"
 
   return 0
 } #get_file_patch_set()
@@ -205,11 +205,11 @@ cd "$TARGET_DIR" || clean_exit 1
 if ! good_repo_status; then clean_exit 1; fi
 
 # Create file in target repository by applying ordered-patch-set
-if git apply --check -- "$ORDERED_PATCH_SET"; then
-  #TODO: consider: git am --reject --whitespace=fix < "$ORDERED_PATCH_SET"
+if git apply --check -- "$PATCHES_TO_USE"; then
+  #TODO: consider: git am --reject --whitespace=fix < "$PATCHES_TO_USE"
   #      probably need to check, and don't apply --whitespace=fix, if MarkDown...
   #NOTE: using am in order to preserve commit messages
-  if ! git am < "$ORDERED_PATCH_SET"; then
+  if ! git am < "$PATCHES_TO_USE"; then
     git am --abort
     printf "$ERROR" "Failed to apply generated patch-set."
     clean_exit 1
