@@ -27,3 +27,13 @@ exiting with status 1.
 Starts python and imports the requested package before exiting.
 A message is printed to standard out and the exit code is set 
 based on success or failure of the import.
+
+### [git-import-file](https://github.com/stuart-knock/bash-tools/blob/master/git-import-file)
+Imports a single file from a source repository into a target repository,
+including its complete commit history. There are a few conditions that
+must be met for this to work, for example:
+  + the source and target repositories must be in clean state;
+  + the `target-file` must not exist.
+  + any commits renaming `source-file` must not have modified its contents.
+  + `git log --follow` must be able to trace `source-file`'s commit history
+    back to the original commit.
