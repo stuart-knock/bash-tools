@@ -38,8 +38,9 @@
 # Use the header as a basic help message.
 [[ "$1" =~ ^('-h'|'--help')$ ]] && { head -n $((LINENO-6)) "${BASH_SOURCE[0]}"; exit 1; }
 
-# Set some variables for message formatting
+# Set some variables for message formatting.
 declare -r ERROR='\e[1;31mERROR:\e[0m %s\n' # Bold Red error message format.
+declare -r WARN='\e[1;33mWARNING:\e[0m %s\n' # Bold Yellow-ish warning message format.
 
 # Capture the directory we start in, we'll do some cd below.
 ORIGINAL_DIR="$(pwd -P)" || exit 1
@@ -101,18 +102,18 @@ capture_args(){
   fi
   TARGET_DIR="$( cd "$(dirname "${TARGET}")" || return 1 ; pwd -P )"
   declare -gr TARGET_DIR
-  # TARGET_BASENAME="$(basename "$TARGET")"
-  # declare -gr TARGET_BASENAME
+  TARGET_BASENAME="$(basename "$TARGET")"
+  declare -gr TARGET_BASENAME
 
   return 0
 } #capture_args()
 
-# Confirm the patch set includes the original commit (first commit has
-# previous sha1 as all zeros and previous file-path as /dev/null).
+# Confirm the patch set includes the original commit.
 have_initial_commit(){
   local initial_commit
   #NOTE: two checks is just to give us more confidence that we've actually
-  #      found a match.
+  #      found a match (first commit has previous sha1 as all zeros and
+  #      previous file-path as /dev/null).
   initial_commit="$(comm -12 <(grep -E --files-with-matches '0{40}' "${WORKING_DIR}/"xx*) \
                              <(grep --files-with-match  '/dev/null' "${WORKING_DIR}/"xx*))"
 
@@ -121,21 +122,32 @@ have_initial_commit(){
     return 1
   fi
   return 0
-}
+} #have_initial_commit()
 
-# Exclude patches that are renames
+# Exclude patches that are renames.
 exclude_renames(){
-  #TODO: Check if we need to substitute file-names here... and if we do does that work???
+  local rename_patch_file_list="${WORKING_DIR}/rename_patches.list"
   grep --files-with-matches '^rename from ' "${WORKING_DIR}/"xx* \
-      > "${WORKING_DIR}/rename_patches.list"
+      > "$rename_patch_file_list"
 
-  if [[ -s "${WORKING_DIR}/rename_patches.list" ]]; then
+  if [[ -s "$rename_patch_file_list" ]]; then
+    local rename_patches
+    rename_patches=($(<"$rename_patch_file_list"))
+    # Extract all past and the present name of the source-file.
+    grep --only-matching -e '^rename from .*$' -e '^rename to .*$' \
+        "${rename_patches[@]}"                                     \
+        | sed -e 's/rename from //g' -e 's/rename to //g'          \
+        > "${WORKING_DIR}/all_source_names.txt"
+
+    #Remove the patches containing renames
     while read -r rename_file; do
       rm -f "$rename_file"
-    done < "${WORKING_DIR}/rename_patches.list"
+    done < "$rename_patch_file_list"
+  else
+    printf '%s\n' "$SOURCE_RELATIVE" > "${WORKING_DIR}/all_source_names.txt"
   fi
   return 0
-}
+} #exclude_renames()
 
 get_file_patch_set(){
   # Create a temporary directory to hold our working files.
@@ -176,8 +188,31 @@ get_file_patch_set(){
   PATCHES_TO_USE="${WORKING_DIR}/patches_to_use.txt"
   cat "${ORDERED_PATCH_SET[@]}" > "$PATCHES_TO_USE"
 
+  # Substitute current and past source-file names with a place-holder.
+  xargs -i                                          \
+      sed --in-place                                \
+          -e 's#a/{}#a/SOURCE_FILE_NAME_WAS_HERE#g' \
+          -e 's#b/{}#b/SOURCE_FILE_NAME_WAS_HERE#g' \
+          -e 's#^ {}# SOURCE_FILE_NAME_WAS_HERE#g'  \
+          "$PATCHES_TO_USE"                         \
+      < "${WORKING_DIR}/all_source_names.txt"
+
   return 0
 } #get_file_patch_set()
+
+verify_import(){
+  local copy_status
+  diff -q "$SOURCE" "$TARGET_BASENAME" &> /dev/null
+  copy_status="$?" #NOTE: No-diff = 0; diff = 1; error = 2
+  if (( copy_status == 1 )); then
+    printf "$WARN" 'The generated target-file differs from the source-file.'
+    return 1
+  elif (( copy_status == 2 )); then
+    printf "$ERROR" 'Something unexpected went wrong...'
+    return 1
+  fi
+  return 0
+}
 
 ############################################################################
 ############################### Main Script ################################
@@ -186,43 +221,54 @@ get_file_patch_set(){
 # Check we were provided at least one argument.
 (( $# >= 1 )) || { printf "$ERROR" "'${BASH_SOURCE[0]}' requires an argument."; exit 1; }
 
-# Capture and do basic checks on arguments.
+# Capture and do basic checks on arguments, setting default target if necessary.
 if ! capture_args "$1" "$2"; then exit 1; fi
 
-# Change into the source-file directory
+# Change into the source-file directory.
 cd "$SOURCE_DIR" || exit 1
 
-# Check that the source git repo is in a clean state
+# Check that the source git repo is in a clean state.
 if ! good_repo_status; then clean_exit 1; fi
 
-# Try to get a complete patch-set necessary to re-create the file, with history.
+# SOURCE_REPO_DIR="$(git rev-parse --show-toplevel)"
+SOURCE_RELATIVE_DIR="$(git rev-parse --show-prefix)"
+if [[ -n "${SOURCE_RELATIVE_DIR}" ]]; then
+  SOURCE_RELATIVE="${SOURCE_RELATIVE_DIR}/${SOURCE_BASENAME}"
+else
+  SOURCE_RELATIVE="${SOURCE_BASENAME}"
+fi
+
+# Get a complete patch-set necessary to re-create the file, with history.
 if ! get_file_patch_set; then clean_exit 1; fi
 
-# Change into the target directory
+# Change into the target directory.
 cd "$TARGET_DIR" || clean_exit 1
 
-# Check that the target git repo is in a clean state
+# Check that the target git repo is in a clean state.
 if ! good_repo_status; then clean_exit 1; fi
 
-# Create file in target repository by applying ordered-patch-set
+# TARGET_REPO_DIR="$(git rev-parse --show-toplevel)"
+TARGET_RELATIVE_DIR="$(git rev-parse --show-prefix)"
+if [[ -n "${TARGET_RELATIVE_DIR}" ]]; then
+  TARGET_RELATIVE="${TARGET_RELATIVE_DIR}/${TARGET_BASENAME}"
+else
+  TARGET_RELATIVE="${TARGET_BASENAME}"
+fi
+
+# Substitute place-holder with repo-relative target-file name.
+sed --in-place -e "s/SOURCE_FILE_NAME_WAS_HERE/${TARGET_RELATIVE}/g" "$PATCHES_TO_USE"
+
+# Create file in target repository by applying ordered-patch-set.
 if git apply --check -- "$PATCHES_TO_USE"; then
-  #TODO: consider: git am --reject --whitespace=fix < "$PATCHES_TO_USE"
-  #      probably need to check, and don't apply --whitespace=fix, if MarkDown...
-  #NOTE: using am in order to preserve commit messages
-  if ! git am < "$PATCHES_TO_USE"; then
+  #NOTE: using am in order to preserve commit messages.
+  if ! git am --quiet < "$PATCHES_TO_USE"; then
     git am --abort
     printf "$ERROR" "Failed to apply generated patch-set."
     clean_exit 1
   fi
-  # diff -q "$SOURCE" "$TARGET_BASENAME" &> /dev/null  #--ignore-trailing-space
-  # copy_status="$?" #NOTE: No-diff = 0; diff = 1; error = 2
-  # if (( copy_status == 1 )); then
-  #   printf "$ERROR" 'The generated target-file differs from the source-file.'
-  #   clean_exit 1
-  # elif (( copy_status == 2 )); then
-  #   printf "$ERROR" 'Something unexpected went wrong...'
-  #   clean_exit 1
-  # fi
+
+  if ! verify_import; then clean_exit 1; fi
+
 else
   printf "$ERROR" "Failed to generate a complete history to apply to the target-file."
   clean_exit 1
