@@ -250,13 +250,13 @@ if ! good_repo_status; then clean_exit 1; fi
 # TARGET_REPO_DIR="$(git rev-parse --show-toplevel)"
 TARGET_RELATIVE_DIR="$(git rev-parse --show-prefix)"
 if [[ -n "${TARGET_RELATIVE_DIR}" ]]; then
-  TARGET_RELATIVE="${TARGET_RELATIVE_DIR}/${TARGET_BASENAME}"
+  TARGET_RELATIVE="${TARGET_RELATIVE_DIR}${TARGET_BASENAME}"
 else
   TARGET_RELATIVE="${TARGET_BASENAME}"
 fi
 
 # Substitute place-holder with repo-relative target-file name.
-sed --in-place -e "s/SOURCE_FILE_NAME_WAS_HERE/${TARGET_RELATIVE}/g" "$PATCHES_TO_USE"
+sed --in-place -e "s#SOURCE_FILE_NAME_WAS_HERE#${TARGET_RELATIVE}#g" "$PATCHES_TO_USE"
 
 # Create file in target repository by applying ordered-patch-set.
 if git apply --check -- "$PATCHES_TO_USE"; then
