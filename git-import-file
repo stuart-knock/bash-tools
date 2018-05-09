@@ -233,7 +233,7 @@ if ! good_repo_status; then clean_exit 1; fi
 # SOURCE_REPO_DIR="$(git rev-parse --show-toplevel)"
 SOURCE_RELATIVE_DIR="$(git rev-parse --show-prefix)"
 if [[ -n "${SOURCE_RELATIVE_DIR}" ]]; then
-  SOURCE_RELATIVE="${SOURCE_RELATIVE_DIR}/${SOURCE_BASENAME}"
+  SOURCE_RELATIVE="${SOURCE_RELATIVE_DIR}${SOURCE_BASENAME}"
 else
   SOURCE_RELATIVE="${SOURCE_BASENAME}"
 fi
