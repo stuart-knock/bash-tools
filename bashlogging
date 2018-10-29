@@ -46,7 +46,7 @@
 #REQUIRES:
 #  tee -- reads from standard input then writes to standard output & files.
 #  xargs
-#  bash >= 4
+#  bash >= 4.2 -- for, at least, the '-g' flag to declare.
 #  GNU sleep -- supporting specification of floating point seconds ie, 0.1 etc.
 #
 #PROVIDES:
