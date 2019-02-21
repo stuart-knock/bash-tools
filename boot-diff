@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+
+#USAGE: boot-diff [from-boot] [to-boot] [journalctl-args]
+#
+#EXAMPLE:
+#  # Show full-log diff between previous boot and current.
+#  boot-diff
+#  # or equivalently
+#  boot-diff 1 0
+#
+#  # Show full-log diff between two boots ago and previous boot.
+#  boot-diff 2 1
+#
+#  # Show diff of warning or higher priority messages between current and
+#  # previous boot.
+#  boot-diff --priority=warning
+#
+#
+#DESCRIPTION:
+#  Presents a side-by-side comparison of log messages between two different
+#  boots of the system. Defaults to comparing current boot and previous boot.
+#  Works using journalctl, so on systems using systemd.
+#
+#  Author: Stuart A. Knock
+#  Originally Written: 2017-07-10
+#  https://github.com/stuart-knock/bash-tools
+#
+
+# Use the header as a basic help message.
+[[ "$1" =~ ^('-h'|'--help')$ ]] && { head -n $((LINENO-2)) "${BASH_SOURCE[0]}" | tail -n +2; exit 0 ; }
+
+# Set some variables for message formatting.
+declare -r ERROR='\e[1;31mERROR:\e[0m %s\n' # Bold Red error message format.
+
+# Parse input args
+JCTL_ARGS=()
+while [[ $# > 0 ]]; do
+  arg="$1"
+  if [[ "${arg:0:1}" = '-' ]]; then
+    JCTL_ARGS+=("$arg")
+    shift #Past argument
+  elif [[ -z "$from_boot" ]]; then
+    from_boot="$arg"
+    shift #Past argument
+  elif [[ -z "$to_boot" ]]; then
+    to_boot="$arg"
+    shift #Past argument
+  else
+    printf "$ERROR" "Could not parse command line arg '${arg}'."
+    exit 1
+  fi
+done
+
+# Default boots to compare if none provided
+[[ -z "$from_boot" ]] && from_boot='1'
+[[ -z "$to_boot" ]] && to_boot='0'
+
+# Get current terminal width.
+display_width="$(tput cols)"
+# (( display_width < 200 )) && #??? warning message, option to set width, default to 220??? maybe a max width too
+
+# Display the diff.
+diff  --width="$(( display_width - 8 ))" --color=always --side-by-side                         \
+    <(journalctl "${JCTL_ARGS[@]}" --no-pager -b -"$from_boot" | grep --only-matching ': .*$') \
+    <(journalctl "${JCTL_ARGS[@]}" --no-pager -b -"$to_boot"   | grep --only-matching ': .*$') \
+    | sed "/|/s/.*/$(printf '\e[0;33m%s\e[0m' '&')/"                                           \
+    | less -S
