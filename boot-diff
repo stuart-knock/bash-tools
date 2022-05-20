@@ -34,7 +34,7 @@ declare -r ERROR='\e[1;31mERROR:\e[0m %s\n' # Bold Red error message format.
 
 # Parse input args
 JCTL_ARGS=()
-while [[ $# > 0 ]]; do
+while (( $# > 0 )); do
   arg="$1"
   if [[ "${arg:0:1}" = '-' ]]; then
     JCTL_ARGS+=("$arg")
@@ -63,5 +63,5 @@ display_width="$(tput cols)"
 diff  --width="$(( display_width - 8 ))" --color=always --side-by-side                         \
     <(journalctl "${JCTL_ARGS[@]}" --no-pager -b -"$from_boot" | grep --only-matching ': .*$') \
     <(journalctl "${JCTL_ARGS[@]}" --no-pager -b -"$to_boot"   | grep --only-matching ': .*$') \
-    | sed "/|/s/.*/$(printf '\e[0;33m%s\e[0m' '&')/"                                           \
+    | sed "/|[[:space:]]*:/s/.*/$(printf '\e[0;33m%s\e[0m' '&')/"                              \
     | less -S
